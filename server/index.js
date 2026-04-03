@@ -18,8 +18,13 @@ app.use(
         return callback(null, true);
       }
 
+      const allowedOrigins = [
+        "https://hoppscotch.io",
+      ];
+
       const isLocalhostOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-      if (isLocalhostOrigin) {
+
+      if (isLocalhostOrigin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
@@ -28,6 +33,7 @@ app.use(
     credentials: true,
   })
 );
+
 
 app.use(express.json());
 app.use(cookieParser());
