@@ -1,0 +1,43 @@
+@custom-variant dark (&:where(.dark, .dark *));
+
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background:
+    radial-gradient(circle at 50% 24%, rgba(16, 185, 129, 0.14), transparent 18%),
+    radial-gradient(circle at 50% 18%, rgba(34, 211, 238, 0.08), transparent 26%),
+    radial-gradient(circle at top, rgba(16, 185, 129, 0.11), transparent 32%),
+    linear-gradient(180deg, #030406 0%, #060a10 42%, #050608 100%);
+}
+
+body {
+  min-height: 100vh;
+  background: transparent;
+  color: #e5eef9;
+}
+
+body::-webkit-scrollbar {
+  width: 10px;
+}
+
+body::-webkit-scrollbar-track {
+  background: #05070b;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
