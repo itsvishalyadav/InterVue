@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import Navbar from '../components/Navbar'
-
 import { useSelector } from 'react-redux'
 import { motion } from "motion/react";
 import {
@@ -14,6 +13,7 @@ import {
 } from "react-icons/bs";
 import { HiSparkles } from "react-icons/hi";
 import { useNavigate } from 'react-router-dom';
+import AuthModel from '../components/AuthModel';
 import hrImg from "../assets/HR.png";
 import techImg from "../assets/tech.png";
 import confidenceImg from "../assets/confi.png";
@@ -165,7 +165,8 @@ function Home() {
         <div className='absolute left-1/2 top-[17rem] h-[26rem] w-[64rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,rgba(4,5,7,0)_66%)] blur-3xl' />
         <div className='absolute bottom-[-10rem] left-1/2 h-[26rem] w-[86rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.1)_0%,rgba(4,5,7,0)_65%)] blur-3xl' />
       </div>
-        <Navbar/>
+      <Navbar />
+
       <main className='relative z-10 overflow-hidden'>
         <section id='home' className='relative px-6 pb-24 pt-14 sm:pt-20'>
           <div className='relative mx-auto max-w-6xl text-center'>
@@ -308,9 +309,140 @@ function Home() {
           </div>
         </section>
 
+        <section className='px-6 py-24'>
+          <div className='mx-auto max-w-6xl'>
+            <div className='mb-16 text-center'>
+              <div className='mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70'>
+                <BsMic className='text-emerald-300' />
+                Workflow
+              </div>
+              <h2 className='text-4xl font-medium tracking-[-0.03em] sm:text-5xl'>
+                <span className='bg-[linear-gradient(90deg,#ffffff_12%,#dbfff2_48%,#95dfff_100%)] bg-clip-text text-transparent'>
+                A cleaner process from setup to scored review.
+                </span>
+              </h2>
+            </div>
+
+            <CarouselTrack
+              items={processCards}
+              duration={26}
+              reverse
+              renderCard={(item, index) => (
+                <motion.div
+                  key={`${item.step}-${index}`}
+                  whileHover={{ y: -8, rotateX: 3 }}
+                  className='w-[min(24rem,78vw)] rounded-[28px] border border-white/8 bg-white/[0.03] p-8 transition hover:border-emerald-500/30 hover:bg-white/[0.05]'
+                >
+                  <div className='mb-6 flex items-center justify-between'>
+                    <div className='flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-300'>
+                      {item.icon}
+                    </div>
+                    <span className='text-xs font-semibold tracking-[0.3em] text-white/28'>{item.step}</span>
+                  </div>
+                  <h3 className='text-2xl font-semibold text-white'>{item.title}</h3>
+                  <p className='mt-4 text-base leading-7 text-white/55'>{item.desc}</p>
+                </motion.div>
+              )}
+            />
+          </div>
+        </section>
+
+        <section id='contact' className='px-6 py-10'>
+          <div className='mx-auto max-w-6xl'>
+            <div className='mb-10'>
+              <div className='mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70'>
+                <BsStars className='text-emerald-300' />
+                Practice Modes
+              </div>
+              <h2 className='max-w-3xl text-4xl font-medium tracking-[-0.03em] sm:text-5xl'>
+                <span className='bg-[linear-gradient(90deg,#ffffff_12%,#d9fff1_50%,#8ce0ff_100%)] bg-clip-text text-transparent'>
+                Explore the platform through animated product lanes instead of static boxes.
+                </span>
+              </h2>
+            </div>
+
+            <CarouselTrack
+              items={modes}
+              duration={28}
+              renderCard={(mode, index) => (
+                <motion.div
+                  key={`${mode.title}-${index}`}
+                  whileHover={{ y: -10, scale: 1.02 }}
+                  className='flex w-[min(28rem,84vw)] items-center justify-between gap-6 rounded-[30px] border border-white/8 bg-white/[0.04] p-8 transition hover:border-emerald-500/30 hover:bg-white/[0.055]'
+                >
+                  <div className='max-w-xs'>
+                    <h3 className='text-2xl font-semibold text-white'>{mode.title}</h3>
+                    <p className='mt-4 text-sm leading-7 text-white/55'>{mode.desc}</p>
+                  </div>
+                  <img src={mode.img} alt={mode.title} className='h-28 w-28 object-contain opacity-95 transition duration-300 group-hover:scale-105' />
+                </motion.div>
+              )}
+            />
+          </div>
+        </section>
+
+        <section id='faq' className='px-6 py-24'>
+          <div className='mx-auto max-w-5xl'>
+            <div className='mb-12 text-center'>
+              <div className='mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70'>
+                <BsFileEarmarkText className='text-emerald-300' />
+                FAQ
+              </div>
+              <h2 className='text-4xl font-medium tracking-[-0.03em] sm:text-5xl'>
+                <span className='bg-[linear-gradient(90deg,#ffffff_10%,#dbfff2_44%,#94dfff_100%)] bg-clip-text text-transparent'>
+                Questions candidates usually ask before starting.
+                </span>
+              </h2>
+            </div>
+
+            <div className='space-y-4'>
+              {faqItems.map((item) => (
+                <div key={item.question} className='rounded-[24px] border border-white/8 bg-white/[0.03] p-6'>
+                  <h3 className='text-lg font-semibold text-white'>{item.question}</h3>
+                  <p className='mt-3 text-sm leading-7 text-white/55'>{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className='px-6 pb-24'>
+          <div className='mx-auto max-w-6xl overflow-hidden rounded-[36px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-10 sm:p-14'>
+            <div className='grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end'>
+              <div>
+                <div className='mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70'>
+                  <BsArrowRight className='text-emerald-300' />
+                  Launch Your Next Practice Session
+                </div>
+                <h2 className='max-w-3xl text-4xl font-medium tracking-[-0.03em] sm:text-5xl'>
+                  <span className='bg-[linear-gradient(90deg,#ffffff_12%,#dcfff4_44%,#94deff_100%)] bg-clip-text text-transparent'>
+                  Move from scattered preparation to a more premium interview routine.
+                  </span>
+                </h2>
+              </div>
+
+              <div className='flex flex-wrap justify-start gap-4 lg:justify-end'>
+                <button
+                  onClick={goToInterview}
+                  className='rounded-2xl bg-white px-7 py-3.5 text-sm font-semibold text-black transition hover:bg-emerald-100'
+                >
+                  Start Interview
+                </button>
+                <button
+                  onClick={() => navigate("/pricing")}
+                  className='rounded-2xl border border-white/12 bg-white/[0.06] px-7 py-3.5 text-sm font-semibold text-white/82 backdrop-blur transition hover:bg-white/[0.1]'
+                >
+                  Explore Plans
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
+
       {showAuth && <AuthModel onClose={() => setShowAuth(false)} />}
-      <Footer/>
+
+      <Footer />
     </div>
   )
 }
