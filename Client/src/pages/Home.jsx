@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import Navbar from '../components/Navbar'
 
 import { useSelector } from 'react-redux'
 import { motion } from "motion/react";
@@ -21,6 +22,7 @@ import evalImg from "../assets/ai-ans.png";
 import resumeImg from "../assets/resume.png";
 import pdfImg from "../assets/pdf.png";
 import analyticsImg from "../assets/history.png";
+import Footer from '../components/Footer';
 
 const capabilityCards = [
   {
@@ -163,7 +165,7 @@ function Home() {
         <div className='absolute left-1/2 top-[17rem] h-[26rem] w-[64rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,rgba(4,5,7,0)_66%)] blur-3xl' />
         <div className='absolute bottom-[-10rem] left-1/2 h-[26rem] w-[86rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.1)_0%,rgba(4,5,7,0)_65%)] blur-3xl' />
       </div>
-
+        <Navbar/>
       <main className='relative z-10 overflow-hidden'>
         <section id='home' className='relative px-6 pb-24 pt-14 sm:pt-20'>
           <div className='relative mx-auto max-w-6xl text-center'>
@@ -308,7 +310,7 @@ function Home() {
 
       </main>
 
-
+      <Footer/>
     </div>
   )
 }
