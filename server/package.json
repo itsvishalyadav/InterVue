@@ -10,8 +10,12 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
     "dotenv": "^17.0.0",
-    "express": "^5.0.0"
+    "express": "^5.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.3.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"
