@@ -309,7 +309,7 @@ function Home() {
         </section>
 
       </main>
-
+      {showAuth && <AuthModel onClose={() => setShowAuth(false)} />}
       <Footer/>
     </div>
   )
