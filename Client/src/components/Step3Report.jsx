@@ -24,11 +24,14 @@ function Step3Report({ report }) {
     communication = 0,
     correctness = 0,
     questionWiseScore = [],
+    proctoring = {},
   } = report;
+  const proctoringSummary = proctoring.summary || {};
+  const proctoringWarnings = proctoring.warnings || [];
 
   const questionScoreData = questionWiseScore.map((score, index) => ({
     name: `Q${index + 1}`,
-    score: score.score || score.finalScore || 0
+    score: score.score || 0
   }))
 
   const skills = [
@@ -56,127 +59,128 @@ function Step3Report({ report }) {
 
 
   const downloadPDF = () => {
-    const doc = new jsPDF("p", "mm", "a4");
+  const doc = new jsPDF("p", "mm", "a4");
 
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const contentWidth = pageWidth - margin * 2;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const contentWidth = pageWidth - margin * 2;
 
-    let currentY = 25;
+  let currentY = 25;
 
-    // ================= TITLE =================
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(34, 197, 94);
-    doc.text("InterVue Performance Report", pageWidth / 2, currentY, {
-      align: "center",
-    });
+  // ================= TITLE =================
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  doc.setTextColor(34, 197, 94);
+  doc.text("InterVue Performance Report", pageWidth / 2, currentY, {
+    align: "center",
+  });
 
-    currentY += 5;
+  currentY += 5;
 
-    // underline
-    doc.setDrawColor(34, 197, 94);
-    doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2);
+  // underline
+  doc.setDrawColor(34, 197, 94);
+  doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2);
 
-    currentY += 15;
+  currentY += 15;
 
-    // ================= FINAL SCORE BOX =================
-    doc.setFillColor(240, 253, 244);
-    doc.roundedRect(margin, currentY, contentWidth, 20, 4, 4, "F");
+  // ================= FINAL SCORE BOX =================
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(margin, currentY, contentWidth, 20, 4, 4, "F");
 
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text(
-      `Final Score: ${finalScore}/10`,
-      pageWidth / 2,
-      currentY + 12,
-      { align: "center" }
-    );
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text(
+    `Final Score: ${finalScore}/10`,
+    pageWidth / 2,
+    currentY + 12,
+    { align: "center" }
+  );
 
-    currentY += 30;
+  currentY += 30;
 
-    // ================= SKILLS BOX =================
-    doc.setFillColor(249, 250, 251);
-    doc.roundedRect(margin, currentY, contentWidth, 30, 4, 4, "F");
+  // ================= SKILLS BOX =================
+  doc.setFillColor(249, 250, 251);
+  doc.roundedRect(margin, currentY, contentWidth, 30, 4, 4, "F");
 
-    doc.setFontSize(12);
+  doc.setFontSize(12);
 
-    doc.text(`Confidence: ${confidence}`, margin + 10, currentY + 10);
-    doc.text(`Communication: ${communication}`, margin + 10, currentY + 18);
-    doc.text(`Correctness: ${correctness}`, margin + 10, currentY + 26);
+  doc.text(`Confidence: ${confidence}`, margin + 10, currentY + 10);
+  doc.text(`Communication: ${communication}`, margin + 10, currentY + 18);
+  doc.text(`Correctness: ${correctness}`, margin + 10, currentY + 26);
 
-    currentY += 45;
+  currentY += 45;
 
-    // ================= ADVICE =================
-    let advice = "";
+  // ================= ADVICE =================
+  let advice = "";
 
-    if (finalScore >= 8) {
-      advice =
-        "Excellent performance. Maintain confidence and structure. Continue refining clarity and supporting answers with strong real-world examples.";
-    } else if (finalScore >= 5) {
-      advice =
-        "Good foundation shown. Improve clarity and structure. Practice delivering concise, confident answers with stronger supporting examples.";
-    } else {
-      advice =
-        "Significant improvement required. Focus on structured thinking, clarity, and confident delivery. Practice answering aloud regularly.";
-    }
+  if (finalScore >= 8) {
+    advice =
+      "Excellent performance. Maintain confidence and structure. Continue refining clarity and supporting answers with strong real-world examples.";
+  } else if (finalScore >= 5) {
+    advice =
+      "Good foundation shown. Improve clarity and structure. Practice delivering concise, confident answers with stronger supporting examples.";
+  } else {
+    advice =
+      "Significant improvement required. Focus on structured thinking, clarity, and confident delivery. Practice answering aloud regularly.";
+  }
 
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(220);
-    doc.roundedRect(margin, currentY, contentWidth, 35, 4, 4);
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(220);
+  doc.roundedRect(margin, currentY, contentWidth, 35, 4, 4);
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Professional Advice", margin + 10, currentY + 10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Professional Advice", margin + 10, currentY + 10);
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
 
-    const splitAdvice = doc.splitTextToSize(advice, contentWidth - 20);
-    doc.text(splitAdvice, margin + 10, currentY + 20);
+  const splitAdvice = doc.splitTextToSize(advice, contentWidth - 20);
+  doc.text(splitAdvice, margin + 10, currentY + 20);
 
-    currentY += 50;
+  currentY += 50;
 
-    // ================= QUESTION TABLE =================
-    autoTable(doc, {
-      startY: currentY,
-      margin: { left: margin, right: margin },
-      head: [["#", "Question", "Score", "Feedback"]],
-      body: questionWiseScore.map((q, i) => [
-        `${i + 1}`,
-        q.question,
-        `${q.score || q.finalScore || 0}/10`,
-        q.feedback || "No feedback provided",
-      ]),
-      styles: {
-        fontSize: 9,
-        cellPadding: 5,
-        valign: "top",
-      },
-      headStyles: {
-        fillColor: [34, 197, 94],
-        textColor: 255,
-        halign: "center",
-      },
-      columnStyles: {
-        0: { cellWidth: 10, halign: "center" }, // index
-        1: { cellWidth: 55 }, // question
-        2: { cellWidth: 20, halign: "center" }, // score
-        3: { cellWidth: "auto" }, // feedback
-      },
-      alternateRowStyles: {
-        fillColor: [249, 250, 251],
-      },
-    });
+  // ================= QUESTION TABLE =================
+  autoTable(doc, {
+  startY: currentY,
+  margin: { left: margin, right: margin },
+  head: [["#", "Question", "Score", "Feedback"]],
+  body: questionWiseScore.map((q, i) => [
+    `${i + 1}`,
+    q.question,
+    `${q.score}/10`,
+    q.feedback,
+  ]),
+  styles: {
+    fontSize: 9,
+    cellPadding: 5,
+    valign: "top",
+  },
+  headStyles: {
+    fillColor: [34, 197, 94],
+    textColor: 255,
+    halign: "center",
+  },
+  columnStyles: {
+    0: { cellWidth: 10, halign: "center" }, // index
+    1: { cellWidth: 55 }, // question
+    2: { cellWidth: 20, halign: "center" }, // score
+    3: { cellWidth: "auto" }, // feedback
+  },
+  alternateRowStyles: {
+    fillColor: [249, 250, 251],
+  },
+});
 
-    doc.save("InterVue_Report.pdf");
-  };
+
+  doc.save("AI_Interview_Report.pdf");
+};
 
   return (
     <div className='min-h-screen bg-transparent px-4 py-8 sm:px-6 lg:px-10'>
       <div className='mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
         <div className='md:mb-10 w-full flex items-start gap-4 flex-wrap'>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/history")}
             className='mt-1 rounded-full bg-white/88 p-3 shadow transition hover:shadow-md dark:bg-slate-900/88'><FaArrowLeft className='text-slate-600 dark:text-slate-200' /></button>
 
           <div>
@@ -186,6 +190,7 @@ function Step3Report({ report }) {
             <p className='mt-2 text-slate-500 dark:text-slate-300'>
               AI-powered performance insights
             </p>
+
           </div>
         </div>
 
@@ -201,7 +206,9 @@ function Step3Report({ report }) {
         </div>
       </div>
 
+
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8'>
+
         <div className='space-y-6'>
           <motion.div
             initial={{ opacity: 0 }}
@@ -247,24 +254,64 @@ function Step3Report({ report }) {
             </h3>
 
             <div className='space-y-5'>
-              {skills.map((s, i) => (
+              {
+                skills.map((s, i) => (
                   <div key={i}>
                     <div className='flex justify-between mb-2 text-sm sm:text-base'>
+
                       <span>{s.label}</span>
                       <span className='font-semibold text-green-600'>{s.value}</span>
                     </div>
+
                     <div className='bg-gray-200 h-2 sm:h-3 rounded-full'>
                       <div className='bg-green-500 h-full rounded-full'
                         style={{ width: `${s.value * 10}%` }}
+
                       ></div>
+
                     </div>
+
+
                   </div>
-                ))}
+                ))
+              }
             </div>
+
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className='bg-white rounded-2xl sm:rounded-3xl shadow-lg p-6 sm:p-8'>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-6">
+              Proctoring Summary
+            </h3>
+
+            <div className='space-y-4'>
+              <div className='flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3'>
+                <span className='text-sm text-gray-500'>Risk score</span>
+                <span className='text-lg font-semibold text-gray-800'>{proctoringSummary.riskScore || 0}/100</span>
+              </div>
+              <div className='flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3'>
+                <span className='text-sm text-gray-500'>Warnings logged</span>
+                <span className='text-lg font-semibold text-gray-800'>{proctoringSummary.warningCount || 0}</span>
+              </div>
+              <div className='flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3'>
+                <span className='text-sm text-gray-500'>Active at finish</span>
+                <span className='text-lg font-semibold text-gray-800'>{proctoringSummary.activeCount || 0}</span>
+              </div>
+            </div>
+
+            <p className='mt-4 text-xs leading-relaxed text-gray-500'>
+              Proctoring warnings are signals for review, not a final cheating verdict.
+            </p>
+          </motion.div>
+
+
         </div>
 
         <div className='lg:col-span-2 space-y-6'>
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -272,7 +319,9 @@ function Step3Report({ report }) {
             <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-4 sm:mb-6">
               Performance Trend
             </h3>
+
             <div className='h-64 sm:h-72'>
+
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={questionScoreData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -284,9 +333,16 @@ function Step3Report({ report }) {
                     stroke="#22c55e"
                     fill="#bbf7d0"
                     strokeWidth={3} />
+
+
                 </AreaChart>
+
               </ResponsiveContainer>
+
+
             </div>
+
+
           </motion.div>
 
           <motion.div
@@ -299,18 +355,21 @@ function Step3Report({ report }) {
             <div className='space-y-6'>
               {questionWiseScore.map((q, i) => (
                 <div key={i} className='bg-gray-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-gray-200'>
+
                   <div className='flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4'>
                     <div>
                       <p className="text-xs text-gray-400">
                         Question {i + 1}
                       </p>
+
                       <p className="font-semibold text-gray-800 text-sm sm:text-base leading-relaxed">
                         {q.question || "Question not available"}
                       </p>
                     </div>
 
+
                     <div className='bg-green-100 text-green-600 px-3 py-1 rounded-full font-bold text-xs sm:text-sm w-fit'>
-                      {q.score || q.finalScore || 0}/10
+                      {q.score ?? 0}/10
                     </div>
                   </div>
 
@@ -319,17 +378,56 @@ function Step3Report({ report }) {
                       AI Feedback
                     </p>
                     <p className='text-sm text-gray-700 leading-relaxed'>
+
                       {q.feedback && q.feedback.trim() !== ""
                         ? q.feedback
                         : "No feedback available for this question."}
                     </p>
                   </div>
+
                 </div>
               ))}
             </div>
+
           </motion.div>
+
+          {proctoringWarnings.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className='bg-white rounded-2xl sm:rounded-3xl shadow-lg p-5 sm:p-8'>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-6">
+                Proctoring Events
+              </h3>
+              <div className='space-y-4'>
+                {proctoringWarnings.map((warning, index) => (
+                  <div key={warning.eventId || index} className='rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4'>
+                    <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+                      <div>
+                        <p className='text-sm font-semibold text-gray-800'>{warning.label || warning.type}</p>
+                        <p className='mt-1 text-sm text-gray-600'>{warning.message || "Monitoring event recorded."}</p>
+                      </div>
+                      <div className={`rounded-full px-3 py-1 text-xs font-semibold w-fit ${warning.severity === "high" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>
+                        {warning.severity || "medium"}
+                      </div>
+                    </div>
+                    <div className='mt-3 flex flex-wrap gap-2 text-xs text-gray-500'>
+                      <span className='rounded-full bg-white px-3 py-1'>Status: {warning.status || "resolved"}</span>
+                      <span className='rounded-full bg-white px-3 py-1'>Duration: {Math.round((warning.durationMs || 0) / 1000)}s</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+
+
+
+
         </div>
       </div>
+
     </div>
   )
 }
