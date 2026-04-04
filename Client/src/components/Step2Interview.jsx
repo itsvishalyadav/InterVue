@@ -36,6 +36,8 @@ function Step2Interview({ interviewData, onFinish }) {
   
   const videoRef = useRef(null);
   const micStreamRef = useRef(null);
+  const currentUtteranceRef = useRef(null);
+  const answerRef = useRef("");
 
   const [questionStates, setQuestionStates] = useState(
     questions.map(() => ({ answer: "" }))
@@ -56,6 +58,7 @@ function Step2Interview({ interviewData, onFinish }) {
   useEffect(() => {
     lastTranscriptChunkRef.current = "";
     lastTranscriptAtRef.current = 0;
+    answerRef.current = questionStates[currentIndex]?.answer || "";
   }, [currentIndex]);
 
   const updateCurrentState = (updater) => {
@@ -165,6 +168,7 @@ function Step2Interview({ interviewData, onFinish }) {
       window.speechSynthesis.cancel();
       const humanText = text.replace(/,/g, ", ... ").replace(/\./g, ". ... ");
       const utterance = new SpeechSynthesisUtterance(humanText);
+      currentUtteranceRef.current = utterance;
       utterance.voice = selectedVoice;
       utterance.rate = 0.92;
       utterance.pitch = 1.05;
@@ -263,38 +267,30 @@ function Step2Interview({ interviewData, onFinish }) {
     };
 
     recognition.onresult = (event) => {
-      const finalChunks = [];
-
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
         if (!result?.isFinal) continue;
 
         const transcript = result[0]?.transcript?.replace(/\s+/g, " ").trim();
-        if (transcript) finalChunks.push(transcript);
+        if (!transcript) continue;
+
+        const normalizedChunk = transcript.toLowerCase();
+        const normalizedAnswer = (answerRef.current || "").toLowerCase();
+        const repeatedRecently =
+          normalizedChunk === lastTranscriptChunkRef.current &&
+          Date.now() - lastTranscriptAtRef.current < 4000;
+        const alreadyAtTail = normalizedAnswer.endsWith(normalizedChunk);
+
+        if (repeatedRecently || alreadyAtTail) continue;
+
+        const currentAnswer = (answerRef.current || "").trim();
+        const nextAnswer = currentAnswer ? `${currentAnswer} ${transcript}` : transcript;
+        answerRef.current = nextAnswer;
+        lastTranscriptChunkRef.current = normalizedChunk;
+        lastTranscriptAtRef.current = Date.now();
+
+        updateCurrentState({ answer: nextAnswer });
       }
-
-      if (!finalChunks.length) return;
-
-      updateCurrentState((state) => {
-        let nextAnswer = (state.answer || "").trim();
-
-        finalChunks.forEach((chunk) => {
-          const normalizedChunk = chunk.toLowerCase();
-          const normalizedAnswer = nextAnswer.toLowerCase();
-          const repeatedRecently =
-            normalizedChunk === lastTranscriptChunkRef.current &&
-            Date.now() - lastTranscriptAtRef.current < 4000;
-          const alreadyAtTail = normalizedAnswer.endsWith(normalizedChunk);
-
-          if (repeatedRecently || alreadyAtTail) return;
-
-          nextAnswer = nextAnswer ? `${nextAnswer} ${chunk}` : chunk;
-          lastTranscriptChunkRef.current = normalizedChunk;
-          lastTranscriptAtRef.current = Date.now();
-        });
-
-        return { answer: nextAnswer };
-      });
     };
 
     recognition.onerror = (event) => {
@@ -302,9 +298,13 @@ function Step2Interview({ interviewData, onFinish }) {
       recognitionActiveRef.current = false;
       setIsListening(false);
 
-      if (event?.error === "not-allowed" || event?.error === "audio-capture") {
+      if (event?.error === "not-allowed" || event?.error === "service-not-allowed" || event?.error === "audio-capture") {
         shouldKeepListeningRef.current = false;
         setIsMicOn(false);
+      } else if (event?.error === "no-speech") {
+        return;
+      } else if (event?.error === "network") {
+        return;
       }
     };
 
@@ -469,7 +469,10 @@ function Step2Interview({ interviewData, onFinish }) {
             <div className="relative">
               <textarea
                 value={currentState.answer}
-                onChange={(e) => updateCurrentState({ answer: e.target.value })}
+                onChange={(e) => {
+                  answerRef.current = e.target.value;
+                  updateCurrentState({ answer: e.target.value });
+                }}
                 placeholder={
                   isIntroPhase
                     ? "Warm up your vocal cords..."
