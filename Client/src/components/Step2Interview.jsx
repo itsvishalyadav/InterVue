@@ -194,6 +194,193 @@ function Step2Interview({ interviewData, onFinish }) {
     );
   };
 
+  const syncActiveWarningTypes = () => {
+    const nextTypes = Object.entries(warningStateRef.current)
+      .filter(([, item]) => item?.status === "active")
+      .map(([type]) => type);
+    setActiveWarningTypes(nextTypes);
+  };
+
+  const showLiveAlert = (type, override = {}) => {
+    const config = PROCTORING_ALERTS[type] || {};
+    const alertId = createId();
+    const nextAlert = {
+      id: alertId,
+      title: override.label || config.label || "Alert",
+      message: override.message || config.description || "Suspicious activity detected.",
+      severity: override.severity || config.severity || "medium",
+    };
+    setLiveAlerts((prev) => [nextAlert, ...prev].slice(0, 4));
+    const timeoutId = window.setTimeout(() => {
+      setLiveAlerts((prev) => prev.filter((item) => item.id !== alertId));
+    }, 5200);
+    alertTimeoutsRef.current.push(timeoutId);
+  };
+
+  const postProctoringEvent = async (payload) => {
+    try {
+      const result = await axios.post(
+        `${ServerUrl}/api/interview/proctoring-event`,
+        { interviewId, ...payload },
+        { withCredentials: true }
+      );
+      if (result.data) {
+        setProctoringSummary((prev) => ({ ...prev, ...result.data }));
+      }
+    } catch (error) {
+      console.log("failed to sync proctoring event", error);
+    }
+  };
+
+  const openWarning = (type, extra = {}) => {
+    const config = PROCTORING_ALERTS[type];
+    if (!config) return;
+    const existing = warningStateRef.current[type];
+    if (existing?.status === "active") return;
+
+    const startedAt = new Date().toISOString();
+    const eventId = existing?.eventId || createId();
+    const message = buildWarningMessage(type, extra);
+
+    warningStateRef.current[type] = {
+      eventId, status: "active", startedAt, openedAtMs: Date.now(), meta: extra,
+    };
+    syncActiveWarningTypes();
+    showLiveAlert(type, { message, severity: config.severity, label: config.label });
+    postProctoringEvent({
+      eventId, type, label: config.label, message, severity: config.severity,
+      status: "active", startedAt, confidence: extra.confidence || 0, meta: extra,
+    });
+  };
+
+  const resolveWarning = async (type, extra = {}) => {
+    const warning = warningStateRef.current[type];
+    if (!warning || warning.status !== "active") {
+      if (warning) warningStateRef.current[type] = { ...warning, pendingSince: null };
+      return;
+    }
+    const endedAt = new Date().toISOString();
+    const durationMs = Math.max(0, Date.now() - (warning.openedAtMs || Date.now()));
+    const config = PROCTORING_ALERTS[type];
+    const message = buildWarningMessage(type, { ...warning.meta, ...extra });
+
+    warningStateRef.current[type] = { ...warning, status: "resolved", pendingSince: null };
+    syncActiveWarningTypes();
+    await postProctoringEvent({
+      eventId: warning.eventId, type, label: config?.label || type, message,
+      severity: config?.severity || "medium", status: "resolved",
+      startedAt: warning.startedAt, endedAt, durationMs,
+      confidence: extra.confidence || warning.meta?.confidence || 0,
+      meta: { ...warning.meta, ...extra },
+    });
+  };
+
+  const evaluateWarning = (type, triggered, extra = {}) => {
+    const config = PROCTORING_ALERTS[type];
+    if (!config) return;
+    const existing = warningStateRef.current[type];
+
+    if (triggered) {
+      const pendingSince = existing?.pendingSince || Date.now();
+      warningStateRef.current[type] = {
+        ...existing, eventId: existing?.eventId || createId(), pendingSince, meta: extra,
+      };
+      if (Date.now() - pendingSince >= config.activationMs) {
+        openWarning(type, extra);
+      }
+      return;
+    }
+    if (existing?.status === "active") { resolveWarning(type, extra); return; }
+    if (existing) {
+      warningStateRef.current[type] = { ...existing, pendingSince: null, meta: extra };
+    }
+  };
+
+  const flushActiveWarnings = async () => {
+    const activeTypes = Object.entries(warningStateRef.current)
+      .filter(([, item]) => item?.status === "active")
+      .map(([type]) => type);
+    await Promise.all(activeTypes.map((type) => resolveWarning(type)));
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const initializeDetector = async () => {
+      try {
+        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
+        const detector = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
+            delegate: "GPU",
+          },
+          runningMode: "VIDEO", numFaces: 3,
+          minFaceDetectionConfidence: 0.55, minFacePresenceConfidence: 0.55, minTrackingConfidence: 0.5,
+        });
+        if (cancelled) { detector.close(); return; }
+        detectorRef.current = detector;
+        detectorModeRef.current = "mediapipe";
+        setDetectorMode("mediapipe");
+        setDetectorStatus("ready");
+      } catch (error) {
+        console.log("mediapipe detector unavailable", error);
+        if ("FaceDetector" in window) {
+          detectorRef.current = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
+          detectorModeRef.current = "native";
+          setDetectorMode("native");
+          setDetectorStatus("limited");
+          showLiveAlert("detector_offline");
+          return;
+        }
+        detectorRef.current = null;
+        detectorModeRef.current = "offline";
+        setDetectorMode("offline");
+        setDetectorStatus("offline");
+        showLiveAlert("detector_offline");
+      }
+    };
+    initializeDetector();
+    return () => { cancelled = true; detectorRef.current?.close?.(); detectorRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const initializeCamera = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraPermission("blocked");
+        setCameraStatusText("Camera access is not available in this browser.");
+        openWarning("camera_blocked", { confidence: 1 });
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 360 } },
+          audio: false,
+        });
+        if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
+        cameraStreamRef.current = stream;
+        if (candidateVideoRef.current) {
+          candidateVideoRef.current.srcObject = stream;
+          candidateVideoRef.current.play().catch(() => { });
+        }
+        setCameraPermission("granted");
+        setCameraStatusText("Camera live. Monitoring face visibility and attention.");
+      } catch (error) {
+        console.log("camera permission denied", error);
+        setCameraPermission("blocked");
+        setCameraStatusText("Camera permission is blocked. Real-time proctoring is limited.");
+        openWarning("camera_blocked", { confidence: 1 });
+      }
+    };
+    initializeCamera();
+    return () => {
+      cancelled = true;
+      cameraStreamRef.current?.getTracks()?.forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+      micStreamRef.current?.getTracks()?.forEach((track) => track.stop());
+      micStreamRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     const preferredGender = voicePreference === "male" ? "male" : "female";
 
