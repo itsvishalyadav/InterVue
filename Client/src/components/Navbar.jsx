@@ -16,6 +16,7 @@ const navItems = [
   { label: "Home", id: "home" },
   { label: "About", id: "about" },
   { label: "Portfolio", id: "portfolio" },
+  { label: "Contact", id: "contact" },
   { label: "FAQ", id: "faq" },
 ]
 
@@ -75,7 +76,7 @@ function Navbar() {
                 <div className='relative'>
                     <button onClick={()=>{
                         if(!userData){
-                           navigate("/pricing")
+                            setShowAuth(true)
                             return;
                         }
                         setShowCreditPopup(!showCreditPopup);
@@ -94,7 +95,16 @@ function Navbar() {
                     )}
                 </div>
 
-                <div className='relative flex'>
+                <div className='relative'>
+                    {!userData && (
+                        <button
+                            type='button'
+                            onClick={() => navigate("/pricing")}
+                            className='hidden rounded-2xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-emerald-400 lg:inline-flex'
+                        >
+                            Get In Touch
+                        </button>
+                    )}
                     <button
                     onClick={()=>{
                         if(!userData){
