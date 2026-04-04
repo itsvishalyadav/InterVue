@@ -8,19 +8,21 @@ const __dirname = path.dirname(__filename);
 const uploadDir = path.resolve(__dirname, "../public");
 
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+    fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
-  destination: function (_req, _file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (_req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
+    destination: function(req, file , cb){
+        cb(null , uploadDir)
+    },
+    filename: function(req , file , cb){
+        const filename = Date.now() + "-" + file.originalname;
+        cb(null , filename)
+    }
+})
+
 
 export const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
