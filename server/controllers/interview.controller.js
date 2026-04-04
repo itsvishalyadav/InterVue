@@ -1,3 +1,6 @@
+
+import fs from "fs";
+
 import { askAi } from "../services/openRouter.service.js";
 
 const QUESTION_COUNT = 5;
@@ -321,6 +324,7 @@ Answer: ${answer}
   },
 ];
 
+
 const generateAiQuestions = async ({ role, experience, mode }) => {
   const aiResponse = await askAi(buildQuestionMessages({ role, experience, mode }));
   const parsed = parseAiJson(aiResponse);
@@ -394,6 +398,135 @@ const buildOverallFeedback = ({ finalScore, mode }) => {
     ? "The basics are there, but the answers need more structure, accuracy, and technical depth."
     : "The answers need clearer structure and stronger examples to leave a better impression.";
 };
+
+
+const buildResumeFallback = (resumeText = "") => {
+  const normalized = resumeText.toLowerCase();
+
+  const skillPool = [
+    "javascript",
+    "typescript",
+    "react",
+    "node",
+    "express",
+    "mongodb",
+    "firebase",
+    "html",
+    "css",
+    "tailwind",
+    "redux",
+    "next.js",
+    "python",
+    "java",
+    "sql",
+    "git",
+  ];
+
+  const skills = skillPool.filter((skill) => normalized.includes(skill)).slice(0, 8);
+
+  const experienceMatch = resumeText.match(/(\d+(?:\.\d+)?)\s*\+?\s*(years?|yrs?)/i);
+
+  return {
+    role: "",
+    experience: experienceMatch ? experienceMatch[0] : "",
+    projects: [],
+    skills,
+  };
+};
+
+export const analyzeResume = async (req, res) => {
+  try {
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+    if (!req.file) {
+      return res.status(400).json({ message: "Resume required" });
+    }
+
+    const filePath = req.file.path;
+    const fileBuffer = await fs.promises.readFile(filePath);
+    const uint8Array = new Uint8Array(fileBuffer);
+
+    const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+
+    let resumeText = "";
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+      const pageText = content.items.map((item) => item.str).join(" ");
+      resumeText += `${pageText}\n`;
+    }
+
+    resumeText = resumeText.replace(/\s+/g, " ").trim();
+
+    let parsed;
+    let source = "fallback";
+
+    if (hasAiAccess()) {
+      try {
+        const messages = [
+          {
+            role: "system",
+            content: `
+Extract structured data from a resume.
+
+Return ONLY valid JSON in this exact shape:
+{
+  "role": "string",
+  "experience": "string",
+  "projects": ["string"],
+  "skills": ["string"]
+}
+
+Rules:
+- role must be a short target title like "Frontend Developer", "Software Engineer", or "Data Analyst".
+- experience must be a short normalized summary like "3 years", "3.5 years", "Fresher", or "5+ years".
+- Do NOT return full job history, date ranges, company names, or paragraph text in experience.
+- projects must contain only the most relevant 3 to 5 project names.
+- skills must contain only the most relevant 8 to 12 skill names.
+- Keep project and skill items short and deduplicated.
+- If something is missing, return an empty string or empty array.
+- Do not wrap the JSON in markdown fences.
+`,
+          },
+          {
+            role: "user",
+            content: resumeText,
+          },
+        ];
+
+        const aiResponse = await askAi(messages, "openai/gpt-4o-mini");
+        parsed = parseAiJson(aiResponse);
+        source = "ai";
+      } catch {
+        parsed = buildResumeFallback(resumeText);
+        source = "fallback";
+      }
+    } else {
+      parsed = buildResumeFallback(resumeText);
+    }
+
+    await fs.promises.unlink(filePath);
+
+    return res.status(200).json({
+      source,
+      role: parsed.role || "",
+      experience: parsed.experience || "",
+      projects: Array.isArray(parsed.projects) ? parsed.projects : [],
+      skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+      resumeText,
+    });
+  } catch (error) {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      await fs.promises.unlink(req.file.path);
+    }
+
+    return res.status(500).json({
+      message: `Failed to analyze resume: ${error.message}`,
+    });
+  }
+};
+
 
 export const generateQuestion = async (req, res) => {
   try {
