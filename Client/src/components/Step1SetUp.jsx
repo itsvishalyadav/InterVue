@@ -119,12 +119,7 @@ function Step1SetUp({ onStart }) {
             if (userData) {
                 dispatch(setUserData({ ...userData, credits: result.data.creditsLeft }))
             }
-            onStart({ 
-                ...result.data.interview, 
-                mode, 
-                voicePreference,
-                userName: userData?.fullname || userData?.name || "Candidate"
-            })
+            onStart({ ...result.data, mode, voicePreference })
         } catch (error) {
             console.log(error)
             const message = getErrorMessage(error, "Interview could not start.")
