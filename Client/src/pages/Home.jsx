@@ -341,6 +341,98 @@ function Home() {
           </div>
         </section>
 
+        <section id='contact' className='px-6 py-10'>
+          <div className='mx-auto max-w-6xl'>
+            <div className='mb-10'>
+              <div className='mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70'>
+                <BsStars className='text-emerald-300' />
+                Practice Modes
+              </div>
+              <h2 className='max-w-3xl text-4xl font-medium tracking-[-0.03em] sm:text-5xl'>
+                <span className='bg-[linear-gradient(90deg,#ffffff_12%,#d9fff1_50%,#8ce0ff_100%)] bg-clip-text text-transparent'>
+                Explore the platform through animated product lanes instead of static boxes.
+                </span>
+              </h2>
+            </div>
+
+            <CarouselTrack
+              items={modes}
+              duration={28}
+              renderCard={(mode, index) => (
+                <motion.div
+                  key={`${mode.title}-${index}`}
+                  whileHover={{ y: -10, scale: 1.02 }}
+                  className='flex w-[min(28rem,84vw)] items-center justify-between gap-6 rounded-[30px] border border-white/8 bg-white/[0.04] p-8 transition hover:border-emerald-500/30 hover:bg-white/[0.055]'
+                >
+                  <div className='max-w-xs'>
+                    <h3 className='text-2xl font-semibold text-white'>{mode.title}</h3>
+                    <p className='mt-4 text-sm leading-7 text-white/55'>{mode.desc}</p>
+                  </div>
+                  <img src={mode.img} alt={mode.title} className='h-28 w-28 object-contain opacity-95 transition duration-300 group-hover:scale-105' />
+                </motion.div>
+              )}
+            />
+          </div>
+        </section>
+
+        <section id='faq' className='px-6 py-24'>
+          <div className='mx-auto max-w-5xl'>
+            <div className='mb-12 text-center'>
+              <div className='mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70'>
+                <BsFileEarmarkText className='text-emerald-300' />
+                FAQ
+              </div>
+              <h2 className='text-4xl font-medium tracking-[-0.03em] sm:text-5xl'>
+                <span className='bg-[linear-gradient(90deg,#ffffff_10%,#dbfff2_44%,#94dfff_100%)] bg-clip-text text-transparent'>
+                Questions candidates usually ask before starting.
+                </span>
+              </h2>
+            </div>
+
+            <div className='space-y-4'>
+              {faqItems.map((item) => (
+                <div key={item.question} className='rounded-[24px] border border-white/8 bg-white/[0.03] p-6'>
+                  <h3 className='text-lg font-semibold text-white'>{item.question}</h3>
+                  <p className='mt-3 text-sm leading-7 text-white/55'>{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className='px-6 pb-24'>
+          <div className='mx-auto max-w-6xl overflow-hidden rounded-[36px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-10 sm:p-14'>
+            <div className='grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end'>
+              <div>
+                <div className='mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70'>
+                  <BsArrowRight className='text-emerald-300' />
+                  Launch Your Next Practice Session
+                </div>
+                <h2 className='max-w-3xl text-4xl font-medium tracking-[-0.03em] sm:text-5xl'>
+                  <span className='bg-[linear-gradient(90deg,#ffffff_12%,#dcfff4_44%,#94deff_100%)] bg-clip-text text-transparent'>
+                  Move from scattered preparation to a more premium interview routine.
+                  </span>
+                </h2>
+              </div>
+
+              <div className='flex flex-wrap justify-start gap-4 lg:justify-end'>
+                <button
+                  onClick={goToInterview}
+                  className='rounded-2xl bg-white px-7 py-3.5 text-sm font-semibold text-black transition hover:bg-emerald-100'
+                >
+                  Start Interview
+                </button>
+                <button
+                  onClick={() => navigate("/pricing")}
+                  className='rounded-2xl border border-white/12 bg-white/[0.06] px-7 py-3.5 text-sm font-semibold text-white/82 backdrop-blur transition hover:bg-white/[0.1]'
+                >
+                  Explore Plans
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         
       </main>
 

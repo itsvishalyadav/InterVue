@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { motion } from "motion/react"
+import React, { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from "motion/react"
 import {
     FaUserTie,
     FaBriefcase,
@@ -9,6 +9,7 @@ import {
     FaBullseye,
     FaArrowRight,
 } from "react-icons/fa";
+import { BsStars } from "react-icons/bs";
 import axios from "axios"
 import { ServerUrl } from '../App';
 import { useDispatch, useSelector } from 'react-redux';
@@ -37,6 +38,27 @@ function Step1SetUp({ onStart }) {
     const [atsReport, setAtsReport] = useState(null);
     const [errorMessage, setErrorMessage] = useState("");
     const [showPricingCta, setShowPricingCta] = useState(false);
+
+    const [loadingTextIndex, setLoadingTextIndex] = useState(0);
+    const loadingMessages = [
+        "Analyzing your profile...",
+        "Getting project details...",
+        "Fetching required skills...",
+        "Generating technical questions...",
+        "Preparing the interview environment...",
+        "Almost ready..."
+    ];
+
+    useEffect(() => {
+        if (loading) {
+            const interval = setInterval(() => {
+                setLoadingTextIndex((prev) => Math.min(prev + 1, loadingMessages.length - 1));
+            }, 2500);
+            return () => clearInterval(interval);
+        } else {
+            setLoadingTextIndex(0);
+        }
+    }, [loading]);
 
     const getErrorMessage = (error, fallback) => error?.response?.data?.message || error?.message || fallback;
 
@@ -132,6 +154,48 @@ function Step1SetUp({ onStart }) {
     }
 
     return (
+        <>
+            <AnimatePresence>
+                {loading && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 dark:bg-slate-950/80 backdrop-blur-md"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20, opacity: 0 }}
+                            animate={{ scale: 1, y: 0, opacity: 1 }}
+                            className="flex flex-col items-center justify-center rounded-3xl bg-white dark:bg-slate-900 border border-green-500/20 shadow-2xl p-10 max-w-sm text-center"
+                        >
+                            <div className="relative mb-6">
+                                <motion.div
+                                    animate={{ rotate: 360 }}
+                                    transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                                    className="h-20 w-20 rounded-full border-4 border-slate-100 dark:border-slate-800 border-t-green-500 border-r-green-500"
+                                ></motion.div>
+                                <BsStars className="absolute inset-0 m-auto text-green-500 text-3xl animate-pulse" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-50 mb-2">Preparing AI Interview</h3>
+                            <div className="text-slate-500 dark:text-slate-400 text-sm overflow-hidden h-6 relative w-full flex justify-center">
+                                <AnimatePresence mode="wait">
+                                    <motion.p
+                                        key={loadingTextIndex}
+                                        initial={{ y: 20, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        exit={{ y: -20, opacity: 0 }}
+                                        transition={{ duration: 0.4 }}
+                                        className="absolute text-center w-full"
+                                    >
+                                        {loadingMessages[loadingTextIndex]}
+                                    </motion.p>
+                                </AnimatePresence>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -355,6 +419,7 @@ function Step1SetUp({ onStart }) {
                 </motion.div>
             </div>
         </motion.div>
+        </>
     )
 }
 
