@@ -32,11 +32,11 @@ function Pricing() {
     {
       id: "basic",
       name: "Starter Pack",
-      price: "₹1",
-      credits: 150,
+      price: "₹99",
+      credits: 500,
       description: "Great for focused practice and skill improvement.",
       features: [
-        "150 AI Interview Credits",
+        "500 AI Interview Credits",
         "Detailed Feedback",
         "Performance Analytics",
         "Full Interview History",
@@ -45,11 +45,11 @@ function Pricing() {
     {
       id: "pro",
       name: "Pro Pack",
-      price: "₹10",
-      credits: 650,
+      price: "₹149",
+      credits: 2000,
       description: "Best value for serious job preparation.",
       features: [
-        "650 AI Interview Credits",
+        "2000 AI Interview Credits",
         "Advanced AI Feedback",
         "Skill Trend Analysis",
         "Priority AI Processing",
@@ -65,8 +65,8 @@ function Pricing() {
       setLoadingPlan(plan.id)
 
       const amount =
-        plan.id === "basic" ? 1 :
-          plan.id === "pro" ? 10 : 0;
+        plan.id === "basic" ? 99 :
+          plan.id === "pro" ? 149 : 0;
 
       const result = await axios.post(ServerUrl + "/api/payment/order", {
         planId: plan.id,
