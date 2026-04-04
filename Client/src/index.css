@@ -1,9 +1,13 @@
+@import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-@import "tailwindcss";
+/* @theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+} */
 
 :root {
   color-scheme: dark;
+  /* font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; */
 }
 
 html {
