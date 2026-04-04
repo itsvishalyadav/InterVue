@@ -433,9 +433,11 @@ function Step2Interview({ interviewData, onFinish }) {
       });
 
       micStreamRef.current = stream;
+      setMicPermission("granted");
       return true;
     } catch (error) {
       console.log("microphone permission denied", error);
+      setMicPermission(error?.name === "NotFoundError" ? "unavailable" : "blocked");
       shouldKeepListeningRef.current = false;
       setIsMicOn(false);
       return false;
@@ -478,7 +480,6 @@ function Step2Interview({ interviewData, onFinish }) {
       window.speechSynthesis.cancel();
       const humanText = text.replace(/,/g, ", ... ").replace(/\./g, ". ... ");
       const utterance = new SpeechSynthesisUtterance(humanText);
-      currentUtteranceRef.current = utterance;
       utterance.voice = selectedVoice;
       utterance.rate = 0.92;
       utterance.pitch = 1.05;
@@ -488,12 +489,12 @@ function Step2Interview({ interviewData, onFinish }) {
         setIsAIPlaying(true);
         isAIPlayingRef.current = true;
         stopMic();
-        videoRef.current?.play().catch(() => {});
+        videoRef.current?.play();
       };
 
       utterance.onend = () => {
+        videoRef.current?.pause();
         if (videoRef.current) {
-          videoRef.current.pause();
           videoRef.current.currentTime = 0;
         }
         setIsAIPlaying(false);
@@ -518,11 +519,15 @@ function Step2Interview({ interviewData, onFinish }) {
     const runIntro = async () => {
       if (isIntroPhase) {
         await speakText(`Hi ${userName}, it is great to meet you today. I hope you are feeling confident and ready.`);
-        await speakText("I will ask you a few questions. Just answer naturally, and take your time. Let us begin.");
+        await speakText(
+          isTechnicalMode
+            ? "For technical questions, you can explain your thinking, write code, and run quick checks in the workspace. Let us begin."
+            : "I will ask you a few questions. Just answer naturally, and take your time. Let us begin."
+        );
         setIsIntroPhase(false);
       } else if (currentQuestion) {
         await new Promise((resolve) => setTimeout(resolve, 800));
-        if (currentIndex === questions.length - 1 && currentIndex > 0) {
+        if (currentIndex === questions.length - 1) {
           await speakText("Alright, this one might be a bit more challenging.");
         }
         await speakText(currentQuestion.question);
@@ -558,6 +563,11 @@ function Step2Interview({ interviewData, onFinish }) {
   }, [currentIndex, isIntroPhase, currentQuestion]);
 
   useEffect(() => {
+    if (!isTechnicalMode || !currentQuestion) return;
+    setShowEditor(Boolean(currentQuestion.requiresCode));
+  }, [currentIndex, currentQuestion, isTechnicalMode]);
+
+  useEffect(() => {
     const SpeechRecognitionApi = window.webkitSpeechRecognition || window.SpeechRecognition;
 
     if (!SpeechRecognitionApi) {
@@ -577,30 +587,38 @@ function Step2Interview({ interviewData, onFinish }) {
     };
 
     recognition.onresult = (event) => {
+      const finalChunks = [];
+
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
         if (!result?.isFinal) continue;
 
         const transcript = result[0]?.transcript?.replace(/\s+/g, " ").trim();
-        if (!transcript) continue;
-
-        const normalizedChunk = transcript.toLowerCase();
-        const normalizedAnswer = (answerRef.current || "").toLowerCase();
-        const repeatedRecently =
-          normalizedChunk === lastTranscriptChunkRef.current &&
-          Date.now() - lastTranscriptAtRef.current < 4000;
-        const alreadyAtTail = normalizedAnswer.endsWith(normalizedChunk);
-
-        if (repeatedRecently || alreadyAtTail) continue;
-
-        const currentAnswer = (answerRef.current || "").trim();
-        const nextAnswer = currentAnswer ? `${currentAnswer} ${transcript}` : transcript;
-        answerRef.current = nextAnswer;
-        lastTranscriptChunkRef.current = normalizedChunk;
-        lastTranscriptAtRef.current = Date.now();
-
-        updateCurrentState({ answer: nextAnswer });
+        if (transcript) finalChunks.push(transcript);
       }
+
+      if (!finalChunks.length) return;
+
+      updateCurrentState((state) => {
+        let nextAnswer = (state.answer || "").trim();
+
+        finalChunks.forEach((chunk) => {
+          const normalizedChunk = chunk.toLowerCase();
+          const normalizedAnswer = nextAnswer.toLowerCase();
+          const repeatedRecently =
+            normalizedChunk === lastTranscriptChunkRef.current &&
+            Date.now() - lastTranscriptAtRef.current < 4000;
+          const alreadyAtTail = normalizedAnswer.endsWith(normalizedChunk);
+
+          if (repeatedRecently || alreadyAtTail) return;
+
+          nextAnswer = nextAnswer ? `${nextAnswer} ${chunk}` : chunk;
+          lastTranscriptChunkRef.current = normalizedChunk;
+          lastTranscriptAtRef.current = Date.now();
+        });
+
+        return { answer: nextAnswer };
+      });
     };
 
     recognition.onerror = (event) => {
@@ -627,7 +645,9 @@ function Step2Interview({ interviewData, onFinish }) {
           if (shouldKeepListeningRef.current && recognitionRef.current && !recognitionActiveRef.current) {
             try {
               recognitionRef.current.start();
-            } catch {}
+            } catch {
+              return;
+            }
           }
         }, 250);
       }
@@ -643,13 +663,147 @@ function Step2Interview({ interviewData, onFinish }) {
     };
   }, [currentIndex]);
 
-  const toggleMic = async () => {
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const hidden = document.visibilityState === "hidden";
+      evaluateWarning("tab_hidden", hidden, {
+        confidence: 1,
+        visibilityState: document.visibilityState,
+      });
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (cameraPermission !== "granted" || !candidateVideoRef.current) return;
+
+    const runDetection = async () => {
+      if (detectionBusyRef.current || document.visibilityState === "hidden") return;
+
+      const detector = detectorRef.current;
+      const mode = detectorModeRef.current;
+      const candidateVideo = candidateVideoRef.current;
+
+      if (!candidateVideo || candidateVideo.readyState < 2 || !detector || mode === "offline") return;
+
+      detectionBusyRef.current = true;
+
+      try {
+        let faceCount = 0;
+        let attention = { isLookingAway: false, yaw: 0, pitch: 0 };
+
+        if (mode === "mediapipe") {
+          const result = detector.detectForVideo(candidateVideo, performance.now());
+          const landmarks = result?.faceLandmarks || [];
+          faceCount = landmarks.length;
+          if (faceCount === 1) {
+            attention = estimateAttention(landmarks[0]);
+          }
+        } else if (mode === "native") {
+          const result = await detector.detect(candidateVideo);
+          faceCount = result.length;
+        }
+
+        evaluateWarning("no_face", faceCount === 0, { confidence: faceCount === 0 ? 1 : 0, faceCount });
+        evaluateWarning("multiple_faces", faceCount > 1, { confidence: Math.min(1, faceCount / 3), faceCount });
+
+        if (mode === "mediapipe" && faceCount === 1) {
+          evaluateWarning("looking_away", attention.isLookingAway, {
+            confidence: Number(Math.max(attention.yaw, attention.pitch).toFixed(2)),
+            faceCount, yaw: Number(attention.yaw.toFixed(3)), pitch: Number(attention.pitch.toFixed(3)),
+          });
+        } else {
+          evaluateWarning("looking_away", false);
+        }
+
+        if (faceCount === 0) setCameraStatusText("Face not visible. Move back into the frame.");
+        else if (faceCount > 1) setCameraStatusText("Multiple faces detected. Only one candidate should be visible.");
+        else if (mode === "mediapipe" && attention.isLookingAway) setCameraStatusText("Looking away detected. Please focus on the interview screen.");
+        else if (mode === "native") setCameraStatusText("Camera live. Face-count checks are running.");
+        else setCameraStatusText("Camera live. Face and attention checks are active.");
+      } catch (error) {
+        console.log("face detection error", error);
+        setCameraStatusText("Face checks paused. Tab monitoring is still active.");
+      } finally {
+        detectionBusyRef.current = false;
+      }
+    };
+
+    detectionIntervalRef.current = window.setInterval(runDetection, 700);
+    return () => {
+      window.clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    };
+  }, [cameraPermission]);
+
+  const toggleMic = () => {
     if (isMicOn) {
-      setIsMicOn(false);
       stopMic();
+      setIsMicOn(false);
     } else {
       setIsMicOn(true);
-      await startMic();
+      shouldKeepListeningRef.current = true;
+      void startMic();
+    }
+  };
+
+  const handleLanguageChange = (language) => {
+    updateCurrentState((state) => ({
+      language,
+      code: state.languageDrafts?.[language] || getQuestionStarterCode(currentQuestion, language),
+      output: "",
+      runStatus: "idle",
+    }));
+  };
+
+  const handleCodeChange = (code) => {
+    updateCurrentState((state) => ({
+      code,
+      runStatus: state.code === code ? state.runStatus : "idle",
+      languageDrafts: {
+        ...(state.languageDrafts || {}),
+        [state.language]: code,
+      },
+    }));
+  };
+
+  const handleResetTemplate = () => {
+    updateCurrentState((state) => {
+      const nextTemplate = getQuestionStarterCode(currentQuestion, state.language);
+      return {
+        code: nextTemplate, output: "", runStatus: "idle",
+        languageDrafts: { ...(state.languageDrafts || {}), [state.language]: nextTemplate },
+      };
+    });
+  };
+
+  const runCode = async () => {
+    if (!isTechnicalMode) return;
+    updateCurrentState({ isRunning: true, showOutput: true, output: "Running your latest code..." });
+
+    try {
+      const result = await axios.post(
+        `${ServerUrl}/api/interview/quick-run`,
+        { language: currentState.language, code: currentState.code },
+        { withCredentials: true }
+      );
+      updateCurrentState({
+        isRunning: false,
+        output: result.data.output || "Program finished with no output.",
+        showOutput: true,
+        runStatus: result.data.status || (result.data.ok ? "success" : "error"),
+      });
+    } catch (error) {
+      updateCurrentState({
+        isRunning: false,
+        output: error?.response?.data?.message || "Quick run failed. Please try again.",
+        showOutput: true,
+        runStatus: "error",
+      });
     }
   };
 
@@ -662,85 +816,92 @@ function Step2Interview({ interviewData, onFinish }) {
       const result = await axios.post(
         ServerUrl + "/api/interview/submit-answer",
         {
-          question: currentQuestion.question,
-          answer: currentState.answer || "No string provided",
-          mode: interviewData.mode || "Technical",
+          interviewId,
+          questionIndex: currentIndex,
+          answer: currentState.answer || "",
+          explanation: currentState.answer || "",
+          code: isTechnicalMode ? currentState.code || "" : "",
+          language: isTechnicalMode ? currentState.language || "javascript" : "javascript",
+          timeTaken: currentQuestion.timeLimit - timeLeft,
         },
         { withCredentials: true }
       );
 
-      const feedbackMessage = result.data.evaluation?.feedback || result.data.feedback || "Thank you. Let's proceed.";
-      setFeedback(feedbackMessage);
-      updateCurrentState({ evaluation: result.data.evaluation });
-      speakText(feedbackMessage);
+      setFeedback(result.data.feedback);
+      speakText(result.data.feedback);
     } catch (error) {
       console.log(error);
-      const errMsg = "We had an issue catching that, please try again.";
-      setFeedback(errMsg);
-      speakText(errMsg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const finishInterview = async () => {
-    if (isSubmitting) return;
     stopMic();
     setIsMicOn(false);
-    setIsSubmitting(true);
+    await flushActiveWarnings();
 
     try {
-      const answersList = questionStates.map((state, i) => ({
-        question: questions[i].question,
-        answer: state.answer || "Skipped",
-        evaluation: state.evaluation 
-      }));
-
-      const result = await axios.post(ServerUrl + "/api/interview/finish", { answers: answersList, mode: interviewData.mode || "Technical" }, { withCredentials: true });
-      
-      const finalReport = {
-         ...interviewData,
-         ...result.data.summary,
-         questionWiseScore: result.data.questionWiseScore
-      };
-      
-      onFinish(finalReport);
+      const result = await axios.post(ServerUrl + "/api/interview/finish", { interviewId }, { withCredentials: true });
+      onFinish(result.data);
     } catch (error) {
       console.log(error);
-    } finally {
-      setIsSubmitting(false);
     }
+  };
+
+  const handleQuitInterview = async () => {
+    const shouldQuit = window.confirm("Quit this interview and return home?");
+    if (!shouldQuit) return;
+
+    stopMic();
+    setIsMicOn(false);
+    await flushActiveWarnings();
+    window.speechSynthesis.cancel();
+    navigate("/");
   };
 
   const handleNext = async () => {
     setFeedback("");
-    window.speechSynthesis.cancel();
-    stopMic();
-
     if (currentIndex + 1 >= questions.length) {
       finishInterview();
       return;
     }
 
+    await speakText("Alright, let us move to the next question.");
     setCurrentIndex(currentIndex + 1);
     setTimeout(() => {
-      if (isMicOnRef.current) startMic();
+      if (isMicOn) startMic();
     }, 500);
   };
 
   useEffect(() => {
     if (isIntroPhase || !currentQuestion) return;
-    if (timeLeft === 0 && !isSubmitting && !feedback) {
+    if (!isTechnicalMode && timeLeft === 0 && !isSubmitting && !feedback) {
       submitAnswer();
     }
-  }, [timeLeft, isIntroPhase, currentQuestion, isSubmitting, feedback]);
+  }, [timeLeft, isIntroPhase, currentQuestion, isSubmitting, feedback, isTechnicalMode]);
 
   useEffect(() => {
     return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current.abort();
+      }
+      if (detectionIntervalRef.current) {
+        window.clearInterval(detectionIntervalRef.current);
+      }
+      alertTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       window.speechSynthesis.cancel();
-      recognitionRef.current?.stop();
+      cameraStreamRef.current?.getTracks()?.forEach((track) => track.stop());
     };
   }, []);
+
+  const activeWarningBadges = activeWarningTypes.map((type) => {
+    const config = PROCTORING_ALERTS[type];
+    return { type, label: config?.label || type, severity: config?.severity || "medium" };
+  });
+
+  const videoSource = voiceGender === "male" ? maleVideo : femaleVideo;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
