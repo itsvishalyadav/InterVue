@@ -159,12 +159,6 @@ function Home() {
 
   return (
     <div className='relative min-h-screen overflow-hidden bg-transparent text-white'>
-      <div className='pointer-events-none fixed inset-0'>
-        <div className='absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(16,185,129,0.18),transparent_14%),radial-gradient(circle_at_50%_24%,rgba(34,211,238,0.08),transparent_22%),linear-gradient(180deg,#040507_0%,#06080d_42%,#040507_100%)]' />
-        <div className='absolute left-1/2 top-[10rem] h-[32rem] w-[80rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(52,211,153,0.18)_0%,rgba(16,185,129,0.1)_28%,rgba(5,8,12,0)_68%)] blur-3xl' />
-        <div className='absolute left-1/2 top-[17rem] h-[26rem] w-[64rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,rgba(4,5,7,0)_66%)] blur-3xl' />
-        <div className='absolute bottom-[-10rem] left-1/2 h-[26rem] w-[86rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.1)_0%,rgba(4,5,7,0)_65%)] blur-3xl' />
-      </div>
       <Navbar />
 
       <main className='relative z-10 overflow-hidden'>
