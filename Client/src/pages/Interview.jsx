@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { FaArrowLeft, FaCheck } from 'react-icons/fa'
 import Step1SetUp from '../components/Step1SetUp'
 import Step2Interview from '../components/Step2Interview'
+import Step3Report from '../components/Step3Report'
 import ThemeToggle from '../components/ThemeToggle'
 
 function Interview() {
@@ -12,7 +13,8 @@ function Interview() {
 
     const steps = useMemo(() => ([
         { id: 1, label: 'Setup' },
-        { id: 2, label: 'Interview' }
+        { id: 2, label: 'Interview' },
+        { id: 3, label: 'Report' }
     ]), [])
 
     const handleBack = () => {
@@ -78,21 +80,7 @@ function Interview() {
             )}
 
             {step === 3 && (
-                <div className="flex flex-col items-center justify-center pt-20 px-4">
-                  <div className="bg-emerald-100 text-emerald-600 rounded-full h-24 w-24 flex items-center justify-center mb-6">
-                    <FaCheck size={48} />
-                  </div>
-                  <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Interview Completed</h2>
-                  <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-md text-center">
-                    Thank you for completing your interview. Your session has safely concluded.
-                  </p>
-                  <button
-                    onClick={() => navigate('/')}
-                    className="rounded-xl bg-indigo-600 px-8 py-3 text-lg font-semibold text-white transition hover:bg-indigo-700"
-                  >
-                    Return to Home
-                  </button>
-                </div>
+                <Step3Report report={interviewData} />
             )}
         </div>
     )

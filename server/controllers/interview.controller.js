@@ -262,7 +262,7 @@ const normalizeEvaluation = (value = {}) => {
   };
 };
 
-const buildQuestionMessages = ({ role, experience, mode }) => [
+const buildQuestionMessages = ({ role, experience, mode, resumeText, projects, skills }) => [
   {
     role: "system",
     content: `
@@ -279,6 +279,7 @@ Each item must follow this shape:
 Rules:
 - If mode is Technical, generate realistic role-specific technical interview questions.
 - If mode is HR, generate realistic behavioral/professional interview questions.
+- YOU MUST incorporate the candidate's resume details, projects, and specific skills into the questions.
 - Keep each question to one sentence.
 - Do not wrap the JSON in markdown fences.
 `,
@@ -289,6 +290,9 @@ Rules:
 Role: ${role}
 Experience: ${experience}
 Mode: ${mode}
+Resume Text: ${resumeText && resumeText.trim() !== '' ? resumeText.substring(0, 500) + '...' : 'Not provided'}
+Skills: ${skills && skills.length > 0 ? skills.join(', ') : 'Not provided'}
+Projects: ${projects && projects.length > 0 ? projects.join(', ') : 'Not provided'}
 `,
   },
 ];
@@ -325,8 +329,8 @@ Answer: ${answer}
 ];
 
 
-const generateAiQuestions = async ({ role, experience, mode }) => {
-  const aiResponse = await askAi(buildQuestionMessages({ role, experience, mode }));
+const generateAiQuestions = async ({ role, experience, mode, resumeText, projects, skills }) => {
+  const aiResponse = await askAi(buildQuestionMessages({ role, experience, mode, resumeText, projects, skills }));
   const parsed = parseAiJson(aiResponse);
   const questions = Array.isArray(parsed) ? parsed : parsed?.questions;
   const normalized = normalizeQuestions(questions);
@@ -530,7 +534,7 @@ Rules:
 
 export const generateQuestion = async (req, res) => {
   try {
-    let { role, experience, mode } = req.body;
+    let { role, experience, mode, resumeText, projects, skills } = req.body;
 
     role = role?.trim();
     experience = experience?.trim();
@@ -547,7 +551,7 @@ export const generateQuestion = async (req, res) => {
 
     if (hasAiAccess()) {
       try {
-        questions = await generateAiQuestions({ role, experience, mode });
+        questions = await generateAiQuestions({ role, experience, mode, resumeText, projects, skills });
         source = "ai";
       } catch {
         questions = buildMockQuestions({ role, mode });
