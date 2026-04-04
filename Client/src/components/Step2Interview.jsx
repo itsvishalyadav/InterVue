@@ -1,15 +1,100 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import maleVideo from "../assets/videos/male-ai.mp4";
 import femaleVideo from "../assets/videos/female-ai.mp4";
 import Timer from "./Timer";
 import { motion } from "motion/react";
-import { BsArrowRight } from "react-icons/bs";
-import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa6";
 import axios from "axios";
 import { ServerUrl } from "../App";
+import { BsArrowRight } from "react-icons/bs";
+import { useNavigate } from "react-router-dom";
+import {
+  FaCode,
+  FaMicrophone,
+  FaMicrophoneSlash,
+  FaRegEye,
+  FaRegEyeSlash,
+  FaRegLightbulb,
+  FaTriangleExclamation,
+  FaUserShield,
+  FaVideo,
+} from "react-icons/fa6";
+import CodeEditorPanel from "./CodeEditorPanel";
+import { getStarterCodeForQuestion, inferPreferredLanguage } from "../utils/codeTemplates";
+import {
+  buildWarningMessage,
+  estimateAttention,
+  getAlertAppearance,
+  PROCTORING_ALERTS,
+} from "../utils/proctoring";
+
+const DEFAULT_PROCTORING_SUMMARY = {
+  warningCount: 0,
+  activeCount: 0,
+  riskScore: 0,
+  lastEventAt: null,
+};
+
+const createId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const getQuestionStarterCode = (question, language = "javascript") => {
+  return getStarterCodeForQuestion(question, language);
+};
+
+const createTechnicalState = (question) => ({
+  answer: "",
+  language: inferPreferredLanguage(question),
+  code: getQuestionStarterCode(question, inferPreferredLanguage(question)),
+  output: "",
+  runStatus: "idle",
+  isRunning: false,
+  showOutput: true,
+  languageDrafts: {
+    javascript: getQuestionStarterCode(question, "javascript"),
+    python: getQuestionStarterCode(question, "python"),
+    java: getQuestionStarterCode(question, "java"),
+    cpp: getQuestionStarterCode(question, "cpp"),
+  },
+});
+
+const getCompanyTagTone = (company = "") => {
+  const tones = {
+    Google: "border-blue-200 bg-blue-50 text-blue-700",
+    Meta: "border-sky-200 bg-sky-50 text-sky-700",
+    Amazon: "border-orange-200 bg-orange-50 text-orange-700",
+    Microsoft: "border-cyan-200 bg-cyan-50 text-cyan-700",
+    Netflix: "border-rose-200 bg-rose-50 text-rose-700",
+    Apple: "border-slate-200 bg-slate-100 text-slate-700",
+  };
+  return tones[company] || "border-slate-200 bg-slate-50 text-slate-700";
+};
+
+const ProctoringAlertStack = ({ alerts }) => {
+  if (!alerts.length) return null;
+  return (
+    <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col gap-3">
+      {alerts.map((alert) => {
+        const appearance = getAlertAppearance(alert.severity);
+        return (
+          <div key={alert.id} className={`rounded-2xl border px-4 py-3 shadow-lg backdrop-blur ${appearance.panel}`}>
+            <div className="flex items-start gap-3">
+              <div className={`mt-1 h-2.5 w-2.5 rounded-full ${appearance.dot}`} />
+              <div>
+                <p className="text-sm font-semibold">{alert.title}</p>
+                <p className="mt-1 text-sm opacity-90">{alert.message}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 function Step2Interview({ interviewData, onFinish }) {
-  const { questions, userName, voicePreference = "female" } = interviewData;
+  const { interviewId, questions, userName, mode = "Technical", voicePreference = "female" } = interviewData;
+  const navigate = useNavigate();
+  const isTechnicalMode = mode === "Technical";
 
   const [isIntroPhase, setIsIntroPhase] = useState(true);
   const [isMicOn, setIsMicOn] = useState(false);
@@ -35,17 +120,56 @@ function Step2Interview({ interviewData, onFinish }) {
   const [feedback, setFeedback] = useState("");
   
   const videoRef = useRef(null);
+  const [showEditor, setShowEditor] = useState(() => isTechnicalMode ? Boolean(questions[0]?.requiresCode) : false);
+
+  const candidateVideoRef = useRef(null);
+  const workspaceBoundsRef = useRef(null);
+  const cameraStreamRef = useRef(null);
   const micStreamRef = useRef(null);
-  const currentUtteranceRef = useRef(null);
-  const answerRef = useRef("");
+  const detectorRef = useRef(null);
+  const detectorModeRef = useRef("loading");
+  const detectionIntervalRef = useRef(null);
+  const detectionBusyRef = useRef(false);
+  const warningStateRef = useRef({});
+  const alertTimeoutsRef = useRef([]);
+
+  const [cameraPermission, setCameraPermission] = useState("prompt");
+  const [micPermission, setMicPermission] = useState("prompt");
+  const [detectorStatus, setDetectorStatus] = useState("loading");
+  const [detectorMode, setDetectorMode] = useState("loading");
+  const [cameraStatusText, setCameraStatusText] = useState("Starting camera checks...");
+  const [liveAlerts, setLiveAlerts] = useState([]);
+  const [activeWarningTypes, setActiveWarningTypes] = useState([]);
+  const [proctoringSummary, setProctoringSummary] = useState(DEFAULT_PROCTORING_SUMMARY);
 
   const [questionStates, setQuestionStates] = useState(
-    questions.map(() => ({ answer: "" }))
+    questions.map((question) => (isTechnicalMode ? createTechnicalState(question) : { answer: "" }))
   );
 
   const currentQuestion = questions[currentIndex];
-  const currentState = questionStates[currentIndex] || { answer: "" };
+  const currentState = useMemo(() => {
+    if (!questionStates[currentIndex]) {
+      return isTechnicalMode ? createTechnicalState() : { answer: "" };
+    }
+    return questionStates[currentIndex];
+  }, [questionStates, currentIndex, isTechnicalMode]);
   const suggestedMinutes = Math.max(1, Math.round((currentQuestion?.timeLimit || 60) / 60));
+  const interviewStyleTags = useMemo(() => {
+    if (!currentQuestion?.companyTag || !currentQuestion?.yearTag || !currentQuestion?.roundTag) return [];
+    return [{
+      label: `${currentQuestion.companyTag} ${currentQuestion.yearTag} ${currentQuestion.roundTag}`,
+      className: getCompanyTagTone(currentQuestion.companyTag),
+    }];
+  }, [currentQuestion]);
+  const feedbackTone = useMemo(() => {
+    const text = (feedback || "").toLowerCase();
+    if (!text) return "neutral";
+    const negativeHints = ["no attempt", "incorrect", "failed", "needs improvement", "missing", "not enough", "did not", "weak"];
+    const positiveHints = ["strong", "good", "great", "excellent", "well done", "correct", "solid", "nice work"];
+    if (negativeHints.some((h) => text.includes(h))) return "negative";
+    if (positiveHints.some((h) => text.includes(h))) return "positive";
+    return "neutral";
+  }, [feedback]);
 
   useEffect(() => {
     isMicOnRef.current = isMicOn;
@@ -58,7 +182,6 @@ function Step2Interview({ interviewData, onFinish }) {
   useEffect(() => {
     lastTranscriptChunkRef.current = "";
     lastTranscriptAtRef.current = 0;
-    answerRef.current = questionStates[currentIndex]?.answer || "";
   }, [currentIndex]);
 
   const updateCurrentState = (updater) => {
