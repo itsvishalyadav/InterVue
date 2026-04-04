@@ -1,5 +1,159 @@
+import { askAi } from "../services/openRouter.service.js";
+
+const QUESTION_COUNT = 5;
+const DEFAULT_MODE = "Technical";
+const ALLOWED_DIFFICULTIES = ["easy", "medium", "hard"];
+
+const extractFirstJsonValue = (value = "") => {
+  const startIndex = value.search(/[\[{]/);
+
+  if (startIndex === -1) {
+    return value;
+  }
+
+  const opening = value[startIndex];
+  const closing = opening === "{" ? "}" : "]";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = startIndex; index < value.length; index += 1) {
+    const char = value[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = false;
+      }
+
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === opening) {
+      depth += 1;
+      continue;
+    }
+
+    if (char === closing) {
+      depth -= 1;
+      if (depth === 0) {
+        return value.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  return value;
+};
+
+const parseAiJson = (value = "") => {
+  const trimmed = value.trim();
+  const withoutFences = trimmed
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  return JSON.parse(extractFirstJsonValue(withoutFences));
+};
+
+const hasAiAccess = () => Boolean(process.env.OPENROUTER_API_KEY?.trim());
+
+const clampScore = (value) => {
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(10, Number(numeric.toFixed(1))));
+};
+
+const buildMockQuestions = ({ role, mode }) => {
+  if (mode === "Technical") {
+    return [
+      {
+        question: `Explain the difference between var, let, and const in JavaScript for a ${role} role.`,
+        difficulty: "easy",
+        timeLimit: 60,
+      },
+      {
+        question: `How would you optimize a slow-rendering component in a ${role} application?`,
+        difficulty: "medium",
+        timeLimit: 90,
+      },
+      {
+        question: "Write the logic to reverse a string without using built-in reverse methods.",
+        difficulty: "easy",
+        timeLimit: 120,
+      },
+      {
+        question: `Describe how you would design error handling in a production-level ${role} project.`,
+        difficulty: "medium",
+        timeLimit: 90,
+      },
+      {
+        question: `How would you improve API calling and loading-state handling in a ${role} application?`,
+        difficulty: "medium",
+        timeLimit: 90,
+      },
+    ];
+  }
+
+  return [
+    {
+      question: "Tell me about yourself.",
+      difficulty: "easy",
+      timeLimit: 60,
+    },
+    {
+      question: "Why do you want this role?",
+      difficulty: "easy",
+      timeLimit: 60,
+    },
+    {
+      question: "Describe a challenge you faced in a project and how you solved it.",
+      difficulty: "medium",
+      timeLimit: 90,
+    },
+    {
+      question: "Tell me about a time you worked in a team under pressure.",
+      difficulty: "medium",
+      timeLimit: 90,
+    },
+    {
+      question: "What is one weakness you are actively trying to improve?",
+      difficulty: "medium",
+      timeLimit: 90,
+    },
+  ];
+};
+
 const buildMockEvaluation = ({ answer, mode }) => {
   const trimmedAnswer = answer.trim();
+
+  if (!trimmedAnswer) {
+    return {
+      confidence: 0,
+      communication: 0,
+      correctness: 0,
+      finalScore: 0,
+      feedback: "No answer was submitted.",
+    };
+  }
+
   const wordCount = trimmedAnswer.split(/\s+/).filter(Boolean).length;
   const lowerAnswer = trimmedAnswer.toLowerCase();
 
@@ -70,79 +224,208 @@ const buildMockEvaluation = ({ answer, mode }) => {
   };
 };
 
+const normalizeQuestions = (items = []) => {
+  const fallbackTimes = [60, 90, 120, 90, 90];
+
+  return items
+    .filter((item) => item && typeof item.question === "string" && item.question.trim())
+    .slice(0, QUESTION_COUNT)
+    .map((item, index) => ({
+      question: item.question.trim(),
+      difficulty: ALLOWED_DIFFICULTIES.includes(item.difficulty) ? item.difficulty : "medium",
+      timeLimit:
+        Number.isFinite(Number(item.timeLimit)) && Number(item.timeLimit) > 0
+          ? Number(item.timeLimit)
+          : fallbackTimes[index] || 90,
+    }));
+};
+
+const normalizeEvaluation = (value = {}) => {
+  const confidence = clampScore(value.confidence);
+  const communication = clampScore(value.communication);
+  const correctness = clampScore(value.correctness);
+  const fallbackScore = Number(((confidence + communication + correctness) / 3).toFixed(1));
+  const providedFinalScore = Number(value.finalScore);
+
+  return {
+    confidence,
+    communication,
+    correctness,
+    finalScore: Number.isFinite(providedFinalScore) ? clampScore(providedFinalScore) : fallbackScore,
+    feedback:
+      typeof value.feedback === "string" && value.feedback.trim()
+        ? value.feedback.trim()
+        : "Solid attempt. Add more clarity and specifics in your answer.",
+  };
+};
+
+const buildQuestionMessages = ({ role, experience, mode }) => [
+  {
+    role: "system",
+    content: `
+You are a mock interview generator.
+
+Return ONLY valid JSON as an array with exactly 5 items.
+Each item must follow this shape:
+{
+  "question": "string",
+  "difficulty": "easy" | "medium" | "hard",
+  "timeLimit": number
+}
+
+Rules:
+- If mode is Technical, generate realistic role-specific technical interview questions.
+- If mode is HR, generate realistic behavioral/professional interview questions.
+- Keep each question to one sentence.
+- Do not wrap the JSON in markdown fences.
+`,
+  },
+  {
+    role: "user",
+    content: `
+Role: ${role}
+Experience: ${experience}
+Mode: ${mode}
+`,
+  },
+];
+
+const buildEvaluationMessages = ({ question, answer, mode }) => [
+  {
+    role: "system",
+    content: `
+You are evaluating a mock interview answer.
+
+Return ONLY valid JSON in this format:
+{
+  "confidence": number,
+  "communication": number,
+  "correctness": number,
+  "finalScore": number,
+  "feedback": "string"
+}
+
+Rules:
+- Scores must be between 0 and 10.
+- feedback must be short, human, and realistic.
+- Do not wrap the JSON in markdown fences.
+`,
+  },
+  {
+    role: "user",
+    content: `
+Interview Mode: ${mode}
+Question: ${question}
+Answer: ${answer}
+`,
+  },
+];
+
+const generateAiQuestions = async ({ role, experience, mode }) => {
+  const aiResponse = await askAi(buildQuestionMessages({ role, experience, mode }));
+  const parsed = parseAiJson(aiResponse);
+  const questions = Array.isArray(parsed) ? parsed : parsed?.questions;
+  const normalized = normalizeQuestions(questions);
+
+  if (normalized.length !== QUESTION_COUNT) {
+    throw new Error("AI did not return 5 valid questions.");
+  }
+
+  return normalized;
+};
+
+const evaluateAnswerWithAi = async ({ question, answer, mode }) => {
+  const aiResponse = await askAi(buildEvaluationMessages({ question, answer, mode }));
+  const parsed = parseAiJson(aiResponse);
+  return normalizeEvaluation(parsed);
+};
+
+const evaluateAnswer = async ({ question, answer, mode }) => {
+  const safeMode = mode?.trim() || DEFAULT_MODE;
+  const trimmedAnswer = answer?.trim() || "";
+
+  if (!trimmedAnswer) {
+    return {
+      source: "mock",
+      evaluation: buildMockEvaluation({ answer: "", mode: safeMode }),
+    };
+  }
+
+  if (!hasAiAccess()) {
+    return {
+      source: "mock",
+      evaluation: buildMockEvaluation({ answer: trimmedAnswer, mode: safeMode }),
+    };
+  }
+
+  try {
+    const evaluation = await evaluateAnswerWithAi({
+      question,
+      answer: trimmedAnswer,
+      mode: safeMode,
+    });
+
+    return {
+      source: "ai",
+      evaluation,
+    };
+  } catch {
+    return {
+      source: "mock",
+      evaluation: buildMockEvaluation({ answer: trimmedAnswer, mode: safeMode }),
+    };
+  }
+};
+
+const buildOverallFeedback = ({ finalScore, mode }) => {
+  if (finalScore >= 8) {
+    return mode === "Technical"
+      ? "Strong overall technical performance with clear reasoning and solid communication."
+      : "Strong overall interview performance with clear communication and confident examples.";
+  }
+
+  if (finalScore >= 6) {
+    return mode === "Technical"
+      ? "Good technical baseline. Sharper detail and deeper explanation would improve the overall result."
+      : "Good overall interview performance, but stronger examples and more depth would help.";
+  }
+
+  return mode === "Technical"
+    ? "The basics are there, but the answers need more structure, accuracy, and technical depth."
+    : "The answers need clearer structure and stronger examples to leave a better impression.";
+};
+
 export const generateQuestion = async (req, res) => {
   try {
-    const { role, experience, mode } = req.body;
+    let { role, experience, mode } = req.body;
 
-    if (!role?.trim() || !experience?.trim() || !mode?.trim()) {
+    role = role?.trim();
+    experience = experience?.trim();
+    mode = mode?.trim();
+
+    if (!role || !experience || !mode) {
       return res.status(400).json({
         message: "Role, experience, and mode are required.",
       });
     }
 
-    let questions = [];
+    let questions = buildMockQuestions({ role, mode });
+    let source = "mock";
 
-    if (mode === "Technical") {
-      questions = [
-        {
-          question: `Explain the difference between var, let, and const in JavaScript for a ${role} role.`,
-          difficulty: "easy",
-          timeLimit: 60,
-        },
-        {
-          question: `How would you optimize a slow-rendering component in a ${role} application?`,
-          difficulty: "medium",
-          timeLimit: 90,
-        },
-        {
-          question: "Write the logic to reverse a string without using built-in reverse methods.",
-          difficulty: "easy",
-          timeLimit: 120,
-        },
-        {
-          question: `Describe how you would design error handling in a production-level ${role} project.`,
-          difficulty: "medium",
-          timeLimit: 90,
-        },
-        {
-          question: `How would you improve API calling and loading-state handling in a ${role} application?`,
-          difficulty: "medium",
-          timeLimit: 90,
-        },
-      ];
-    } else {
-      questions = [
-        {
-          question: "Tell me about yourself.",
-          difficulty: "easy",
-          timeLimit: 60,
-        },
-        {
-          question: "Why do you want this role?",
-          difficulty: "easy",
-          timeLimit: 60,
-        },
-        {
-          question: "Describe a challenge you faced in a project and how you solved it.",
-          difficulty: "medium",
-          timeLimit: 90,
-        },
-        {
-          question: "Tell me about a time you worked in a team under pressure.",
-          difficulty: "medium",
-          timeLimit: 90,
-        },
-        {
-          question: "What is one weakness you are actively trying to improve?",
-          difficulty: "medium",
-          timeLimit: 90,
-        },
-      ];
+    if (hasAiAccess()) {
+      try {
+        questions = await generateAiQuestions({ role, experience, mode });
+        source = "ai";
+      } catch {
+        questions = buildMockQuestions({ role, mode });
+        source = "mock";
+      }
     }
 
     return res.status(200).json({
       success: true,
-      message: "Mock interview questions generated successfully.",
+      message: "Interview questions generated successfully.",
+      source,
       interview: {
         role,
         experience,
@@ -167,21 +450,120 @@ export const submitAnswer = async (req, res) => {
       });
     }
 
-    const evaluation = buildMockEvaluation({
-      answer,
-      mode: mode?.trim() || "Technical",
+    const { evaluation, source } = await evaluateAnswer({
+      question: question.trim(),
+      answer: answer.trim(),
+      mode: mode?.trim() || DEFAULT_MODE,
     });
 
     return res.status(200).json({
       success: true,
       message: "Answer evaluated successfully.",
-      question,
-      answer,
+      source,
+      question: question.trim(),
+      answer: answer.trim(),
       evaluation,
     });
   } catch (error) {
     return res.status(500).json({
       message: `Failed to submit answer: ${error.message}`,
+    });
+  }
+};
+
+export const finishInterview = async (req, res) => {
+  try {
+    const { answers, mode } = req.body;
+    const safeMode = mode?.trim() || DEFAULT_MODE;
+
+    if (!Array.isArray(answers) || answers.length === 0) {
+      return res.status(400).json({
+        message: "A non-empty answers array is required.",
+      });
+    }
+
+    const results = await Promise.all(
+      answers.map(async (item) => {
+        const question = item?.question?.trim();
+        const answer = item?.answer?.trim() || "";
+
+        if (!question) {
+          return null;
+        }
+
+        if (item?.evaluation && typeof item.evaluation === "object") {
+          const normalizedEvaluation = normalizeEvaluation(item.evaluation);
+
+          return {
+            question,
+            answer,
+            source: "provided",
+            ...normalizedEvaluation,
+          };
+        }
+
+        const { evaluation, source } = await evaluateAnswer({
+          question,
+          answer,
+          mode: safeMode,
+        });
+
+        return {
+          question,
+          answer,
+          source,
+          ...evaluation,
+        };
+      })
+    );
+
+    const questionWiseScore = results.filter(Boolean);
+
+    if (questionWiseScore.length === 0) {
+      return res.status(400).json({
+        message: "At least one valid question is required.",
+      });
+    }
+
+    const totals = questionWiseScore.reduce(
+      (accumulator, item) => {
+        accumulator.finalScore += item.finalScore || 0;
+        accumulator.confidence += item.confidence || 0;
+        accumulator.communication += item.communication || 0;
+        accumulator.correctness += item.correctness || 0;
+        return accumulator;
+      },
+      {
+        finalScore: 0,
+        confidence: 0,
+        communication: 0,
+        correctness: 0,
+      }
+    );
+
+    const count = questionWiseScore.length;
+
+    const summary = {
+      finalScore: Number((totals.finalScore / count).toFixed(1)),
+      confidence: Number((totals.confidence / count).toFixed(1)),
+      communication: Number((totals.communication / count).toFixed(1)),
+      correctness: Number((totals.correctness / count).toFixed(1)),
+    };
+
+    summary.overallFeedback = buildOverallFeedback({
+      finalScore: summary.finalScore,
+      mode: safeMode,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Interview finished successfully.",
+      summary,
+      questionWiseScore,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: `Failed to finish interview: ${error.message}`,
     });
   }
 };
