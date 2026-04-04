@@ -5,6 +5,8 @@ import Timer from "./Timer";
 import { motion } from "motion/react";
 import { BsArrowRight } from "react-icons/bs";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa6";
+import axios from "axios";
+import { ServerUrl } from "../App";
 
 function Step2Interview({ interviewData, onFinish }) {
   const { questions, userName, voicePreference = "female" } = interviewData;
@@ -30,6 +32,7 @@ function Step2Interview({ interviewData, onFinish }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voiceGender, setVoiceGender] = useState(voicePreference);
   const [subtitle, setSubtitle] = useState("");
+  const [feedback, setFeedback] = useState("");
   
   const videoRef = useRef(null);
   const micStreamRef = useRef(null);
@@ -340,32 +343,87 @@ function Step2Interview({ interviewData, onFinish }) {
     }
   };
 
-  const handleNext = async () => {
+  const submitAnswer = async () => {
     if (isSubmitting) return;
-
-    window.speechSynthesis.cancel();
     stopMic();
+    setIsSubmitting(true);
 
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setTimeout(() => {
-        if (isMicOnRef.current) startMic();
-      }, 500);
-    } else {
-      setIsSubmitting(true);
+    try {
+      const result = await axios.post(
+        ServerUrl + "/api/interview/submit-answer",
+        {
+          question: currentQuestion.question,
+          answer: currentState.answer || "No string provided",
+          mode: interviewData.mode || "Technical",
+        },
+        { withCredentials: true }
+      );
+
+      const feedbackMessage = result.data.evaluation?.feedback || result.data.feedback || "Thank you. Let's proceed.";
+      setFeedback(feedbackMessage);
+      updateCurrentState({ evaluation: result.data.evaluation });
+      speakText(feedbackMessage);
+    } catch (error) {
+      console.log(error);
+      const errMsg = "We had an issue catching that, please try again.";
+      setFeedback(errMsg);
+      speakText(errMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const finishInterview = async () => {
+    if (isSubmitting) return;
+    stopMic();
+    setIsMicOn(false);
+    setIsSubmitting(true);
+
+    try {
+      const answersList = questionStates.map((state, i) => ({
+        question: questions[i].question,
+        answer: state.answer || "Skipped",
+        evaluation: state.evaluation 
+      }));
+
+      const result = await axios.post(ServerUrl + "/api/interview/finish", { answers: answersList, mode: interviewData.mode || "Technical" }, { withCredentials: true });
       
       const finalReport = {
-        ...interviewData,
-        responses: questionStates.map((state, i) => ({
-          question: questions[i].question,
-          answer: state.answer,
-        })),
-        completedAt: new Date().toISOString()
+         ...interviewData,
+         ...result.data.summary,
+         questionWiseScore: result.data.questionWiseScore
       };
       
       onFinish(finalReport);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const handleNext = async () => {
+    setFeedback("");
+    window.speechSynthesis.cancel();
+    stopMic();
+
+    if (currentIndex + 1 >= questions.length) {
+      finishInterview();
+      return;
+    }
+
+    setCurrentIndex(currentIndex + 1);
+    setTimeout(() => {
+      if (isMicOnRef.current) startMic();
+    }, 500);
+  };
+
+  useEffect(() => {
+    if (isIntroPhase || !currentQuestion) return;
+    if (timeLeft === 0 && !isSubmitting && !feedback) {
+      submitAnswer();
+    }
+  }, [timeLeft, isIntroPhase, currentQuestion, isSubmitting, feedback]);
 
   useEffect(() => {
     return () => {
@@ -453,20 +511,41 @@ function Step2Interview({ interviewData, onFinish }) {
               )}
             </div>
 
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={handleNext}
-                disabled={isIntroPhase || isSubmitting}
-                className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {currentIndex < questions.length - 1 ? (
-                  <>
-                    Next Question <BsArrowRight />
-                  </>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+              {feedback ? (
+                <div className="flex-1 rounded-xl bg-emerald-50 p-4 border border-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800/50 dark:text-emerald-200">
+                  <p className="text-sm font-medium">AI Evaluated:</p>
+                  <p className="mt-1 text-sm">{feedback}</p>
+                </div>
+              ) : (
+                <div className="flex-1"></div>
+              )}
+              
+              <div className="flex gap-3">
+                {!feedback ? (
+                  <button
+                    onClick={submitAnswer}
+                    disabled={isIntroPhase || isSubmitting}
+                    className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {isSubmitting ? "Evaluating..." : "Submit Answer"}
+                  </button>
                 ) : (
-                  "Finish Interview"
+                  <button
+                    onClick={handleNext}
+                    disabled={isIntroPhase || isSubmitting}
+                    className="flex items-center gap-2 rounded-xl bg-slate-900 px-6 py-2.5 font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                  >
+                    {currentIndex < questions.length - 1 ? (
+                      <>
+                        Next Question <BsArrowRight />
+                      </>
+                    ) : (
+                      "Finish Interview"
+                    )}
+                  </button>
                 )}
-              </button>
+              </div>
             </div>
           </div>
         </div>

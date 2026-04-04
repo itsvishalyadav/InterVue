@@ -13,7 +13,7 @@ import axios from "axios"
 import { ServerUrl } from '../App';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUserData } from '../redux/userSlice';
-// import AtsScoreCard from './AtsScoreCard';
+import AtsScoreCard from './AtsScoreCard';
 import { useNavigate } from 'react-router-dom';
 
 function Step1SetUp({ onStart }) {
@@ -119,7 +119,12 @@ function Step1SetUp({ onStart }) {
             if (userData) {
                 dispatch(setUserData({ ...userData, credits: result.data.creditsLeft }))
             }
-            onStart({ ...result.data, mode, voicePreference })
+            onStart({ 
+                ...result.data.interview, 
+                mode, 
+                voicePreference,
+                userName: userData?.fullname || userData?.name || "Candidate"
+            })
         } catch (error) {
             console.log(error)
             const message = getErrorMessage(error, "Interview could not start.")
