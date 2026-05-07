@@ -11,18 +11,7 @@ import paymentRouter from "./routes/payment.route.js"
 
 const app = express()
 app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin) {
-            return callback(null, true);
-        }
-
-        const isLocalhostOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-        if (isLocalhostOrigin) {
-            return callback(null, true);
-        }
-
-        return callback(new Error("Not allowed by CORS"));
-    },
+    origin: true,
     credentials:true
 }))
 
@@ -39,52 +28,3 @@ app.listen(PORT , ()=>{
     console.log(`Server running on port ${PORT}`)
     connectDb()
 })
-
-
-
-
-
-/*
-
-
-
-import express from "express"
-import dotenv from "dotenv"
-import connectDb from "./config/connectDb.js"
-import cookieParser from "cookie-parser"
-dotenv.config()
-import cors from "cors"
-import authRouter from "./routes/auth.route.js"
-import userRouter from "./routes/user.route.js"
-
-
-const app = express()
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin) {
-            return callback(null, true);
-        }
-
-        const isLocalhostOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-        if (isLocalhostOrigin) {
-            return callback(null, true);
-        }
-
-        return callback(new Error("Not allowed by CORS"));
-    },
-    credentials:true
-}))
-
-app.use(express.json())
-app.use(cookieParser())
-
-app.use("/api/auth" , authRouter)
-app.use("/api/user", userRouter)
-
-
-const PORT = process.env.PORT || 6000
-app.listen(PORT , ()=>{
-    console.log(`Server running on port ${PORT}`)
-    connectDb()
-})
-*/

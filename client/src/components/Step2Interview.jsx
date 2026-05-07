@@ -65,18 +65,32 @@ const getCompanyTagTone = (company = "") => {
     Microsoft: "border-cyan-200 bg-cyan-50 text-cyan-700",
     Netflix: "border-rose-200 bg-rose-50 text-rose-700",
     Apple: "border-slate-200 bg-slate-100 text-slate-700",
+    Uber: "border-violet-200 bg-violet-50 text-violet-700",
+    Airbnb: "border-pink-200 bg-pink-50 text-pink-700",
+    LinkedIn: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    Atlassian: "border-cyan-200 bg-cyan-50 text-cyan-700",
+    Stripe: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700",
+    Adobe: "border-red-200 bg-red-50 text-red-700",
   };
+
   return tones[company] || "border-slate-200 bg-slate-50 text-slate-700";
 };
 
 const ProctoringAlertStack = ({ alerts }) => {
-  if (!alerts.length) return null;
+  if (!alerts.length) {
+    return null;
+  }
+
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col gap-3">
       {alerts.map((alert) => {
         const appearance = getAlertAppearance(alert.severity);
+
         return (
-          <div key={alert.id} className={`rounded-2xl border px-4 py-3 shadow-lg backdrop-blur ${appearance.panel}`}>
+          <div
+            key={alert.id}
+            className={`rounded-2xl border px-4 py-3 shadow-lg backdrop-blur ${appearance.panel}`}
+          >
             <div className="flex items-start gap-3">
               <div className={`mt-1 h-2.5 w-2.5 rounded-full ${appearance.dot}`} />
               <div>
@@ -95,30 +109,25 @@ function Step2Interview({ interviewData, onFinish }) {
   const { interviewId, questions, userName, mode = "Technical", voicePreference = "female" } = interviewData;
   const navigate = useNavigate();
   const isTechnicalMode = mode === "Technical";
-
   const [isIntroPhase, setIsIntroPhase] = useState(true);
   const [isMicOn, setIsMicOn] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
-  
   const recognitionRef = useRef(null);
   const shouldKeepListeningRef = useRef(false);
   const recognitionActiveRef = useRef(false);
   const isMicOnRef = useRef(false);
   const isAIPlayingRef = useRef(false);
-  
   const lastTranscriptChunkRef = useRef("");
   const lastTranscriptAtRef = useRef(0);
-  
   const [isAIPlaying, setIsAIPlaying] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [feedback, setFeedback] = useState("");
   const [timeLeft, setTimeLeft] = useState(questions[0]?.timeLimit || 60);
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voiceGender, setVoiceGender] = useState(voicePreference);
   const [subtitle, setSubtitle] = useState("");
-  const [feedback, setFeedback] = useState("");
-  
   const videoRef = useRef(null);
   const [showEditor, setShowEditor] = useState(() => isTechnicalMode ? Boolean(questions[0]?.requiresCode) : false);
 
@@ -153,9 +162,13 @@ function Step2Interview({ interviewData, onFinish }) {
     }
     return questionStates[currentIndex];
   }, [questionStates, currentIndex, isTechnicalMode]);
+  const technicalTimerReached = isTechnicalMode && timeLeft === 0 && !feedback;
   const suggestedMinutes = Math.max(1, Math.round((currentQuestion?.timeLimit || 60) / 60));
   const interviewStyleTags = useMemo(() => {
-    if (!currentQuestion?.companyTag || !currentQuestion?.yearTag || !currentQuestion?.roundTag) return [];
+    if (!currentQuestion?.companyTag || !currentQuestion?.yearTag || !currentQuestion?.roundTag) {
+      return [];
+    }
+
     return [{
       label: `${currentQuestion.companyTag} ${currentQuestion.yearTag} ${currentQuestion.roundTag}`,
       className: getCompanyTagTone(currentQuestion.companyTag),
@@ -164,10 +177,32 @@ function Step2Interview({ interviewData, onFinish }) {
   const feedbackTone = useMemo(() => {
     const text = (feedback || "").toLowerCase();
     if (!text) return "neutral";
-    const negativeHints = ["no attempt", "incorrect", "failed", "needs improvement", "missing", "not enough", "did not", "weak"];
-    const positiveHints = ["strong", "good", "great", "excellent", "well done", "correct", "solid", "nice work"];
-    if (negativeHints.some((h) => text.includes(h))) return "negative";
-    if (positiveHints.some((h) => text.includes(h))) return "positive";
+
+    const negativeHints = [
+      "no attempt",
+      "incorrect",
+      "failed",
+      "needs improvement",
+      "missing",
+      "not enough",
+      "did not",
+      "weak",
+      "practice",
+      "research",
+    ];
+    const positiveHints = [
+      "strong",
+      "good",
+      "great",
+      "excellent",
+      "well done",
+      "correct",
+      "solid",
+      "nice work",
+    ];
+
+    if (negativeHints.some((hint) => text.includes(hint))) return "negative";
+    if (positiveHints.some((hint) => text.includes(hint))) return "positive";
     return "neutral";
   }, [feedback]);
 
@@ -183,16 +218,6 @@ function Step2Interview({ interviewData, onFinish }) {
     lastTranscriptChunkRef.current = "";
     lastTranscriptAtRef.current = 0;
   }, [currentIndex]);
-
-  const updateCurrentState = (updater) => {
-    setQuestionStates((prev) =>
-      prev.map((item, index) => {
-        if (index !== currentIndex) return item;
-        const updates = typeof updater === "function" ? updater(item) : updater;
-        return { ...item, ...updates };
-      })
-    );
-  };
 
   const syncActiveWarningTypes = () => {
     const nextTypes = Object.entries(warningStateRef.current)
@@ -210,10 +235,13 @@ function Step2Interview({ interviewData, onFinish }) {
       message: override.message || config.description || "Suspicious activity detected.",
       severity: override.severity || config.severity || "medium",
     };
+
     setLiveAlerts((prev) => [nextAlert, ...prev].slice(0, 4));
+
     const timeoutId = window.setTimeout(() => {
       setLiveAlerts((prev) => prev.filter((item) => item.id !== alertId));
     }, 5200);
+
     alertTimeoutsRef.current.push(timeoutId);
   };
 
@@ -221,9 +249,13 @@ function Step2Interview({ interviewData, onFinish }) {
     try {
       const result = await axios.post(
         `${ServerUrl}/api/interview/proctoring-event`,
-        { interviewId, ...payload },
+        {
+          interviewId,
+          ...payload,
+        },
         { withCredentials: true }
       );
+
       if (result.data) {
         setProctoringSummary((prev) => ({ ...prev, ...result.data }));
       }
@@ -235,41 +267,73 @@ function Step2Interview({ interviewData, onFinish }) {
   const openWarning = (type, extra = {}) => {
     const config = PROCTORING_ALERTS[type];
     if (!config) return;
+
     const existing = warningStateRef.current[type];
-    if (existing?.status === "active") return;
+    if (existing?.status === "active") {
+      return;
+    }
 
     const startedAt = new Date().toISOString();
     const eventId = existing?.eventId || createId();
     const message = buildWarningMessage(type, extra);
 
     warningStateRef.current[type] = {
-      eventId, status: "active", startedAt, openedAtMs: Date.now(), meta: extra,
+      eventId,
+      status: "active",
+      startedAt,
+      openedAtMs: Date.now(),
+      meta: extra,
     };
+
     syncActiveWarningTypes();
     showLiveAlert(type, { message, severity: config.severity, label: config.label });
     postProctoringEvent({
-      eventId, type, label: config.label, message, severity: config.severity,
-      status: "active", startedAt, confidence: extra.confidence || 0, meta: extra,
+      eventId,
+      type,
+      label: config.label,
+      message,
+      severity: config.severity,
+      status: "active",
+      startedAt,
+      confidence: extra.confidence || 0,
+      meta: extra,
     });
   };
 
   const resolveWarning = async (type, extra = {}) => {
     const warning = warningStateRef.current[type];
     if (!warning || warning.status !== "active") {
-      if (warning) warningStateRef.current[type] = { ...warning, pendingSince: null };
+      if (warning) {
+        warningStateRef.current[type] = {
+          ...warning,
+          pendingSince: null,
+        };
+      }
       return;
     }
+
     const endedAt = new Date().toISOString();
     const durationMs = Math.max(0, Date.now() - (warning.openedAtMs || Date.now()));
     const config = PROCTORING_ALERTS[type];
     const message = buildWarningMessage(type, { ...warning.meta, ...extra });
 
-    warningStateRef.current[type] = { ...warning, status: "resolved", pendingSince: null };
+    warningStateRef.current[type] = {
+      ...warning,
+      status: "resolved",
+      pendingSince: null,
+    };
     syncActiveWarningTypes();
+
     await postProctoringEvent({
-      eventId: warning.eventId, type, label: config?.label || type, message,
-      severity: config?.severity || "medium", status: "resolved",
-      startedAt: warning.startedAt, endedAt, durationMs,
+      eventId: warning.eventId,
+      type,
+      label: config?.label || type,
+      message,
+      severity: config?.severity || "medium",
+      status: "resolved",
+      startedAt: warning.startedAt,
+      endedAt,
+      durationMs,
       confidence: extra.confidence || warning.meta?.confidence || 0,
       meta: { ...warning.meta, ...extra },
     });
@@ -278,21 +342,35 @@ function Step2Interview({ interviewData, onFinish }) {
   const evaluateWarning = (type, triggered, extra = {}) => {
     const config = PROCTORING_ALERTS[type];
     if (!config) return;
+
     const existing = warningStateRef.current[type];
 
     if (triggered) {
       const pendingSince = existing?.pendingSince || Date.now();
       warningStateRef.current[type] = {
-        ...existing, eventId: existing?.eventId || createId(), pendingSince, meta: extra,
+        ...existing,
+        eventId: existing?.eventId || createId(),
+        pendingSince,
+        meta: extra,
       };
+
       if (Date.now() - pendingSince >= config.activationMs) {
         openWarning(type, extra);
       }
       return;
     }
-    if (existing?.status === "active") { resolveWarning(type, extra); return; }
+
+    if (existing?.status === "active") {
+      resolveWarning(type, extra);
+      return;
+    }
+
     if (existing) {
-      warningStateRef.current[type] = { ...existing, pendingSince: null, meta: extra };
+      warningStateRef.current[type] = {
+        ...existing,
+        pendingSince: null,
+        meta: extra,
+      };
     }
   };
 
@@ -300,86 +378,19 @@ function Step2Interview({ interviewData, onFinish }) {
     const activeTypes = Object.entries(warningStateRef.current)
       .filter(([, item]) => item?.status === "active")
       .map(([type]) => type);
+
     await Promise.all(activeTypes.map((type) => resolveWarning(type)));
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    const initializeDetector = async () => {
-      try {
-        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
-        const detector = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO", numFaces: 3,
-          minFaceDetectionConfidence: 0.55, minFacePresenceConfidence: 0.55, minTrackingConfidence: 0.5,
-        });
-        if (cancelled) { detector.close(); return; }
-        detectorRef.current = detector;
-        detectorModeRef.current = "mediapipe";
-        setDetectorMode("mediapipe");
-        setDetectorStatus("ready");
-      } catch (error) {
-        console.log("mediapipe detector unavailable", error);
-        if ("FaceDetector" in window) {
-          detectorRef.current = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
-          detectorModeRef.current = "native";
-          setDetectorMode("native");
-          setDetectorStatus("limited");
-          showLiveAlert("detector_offline");
-          return;
-        }
-        detectorRef.current = null;
-        detectorModeRef.current = "offline";
-        setDetectorMode("offline");
-        setDetectorStatus("offline");
-        showLiveAlert("detector_offline");
-      }
-    };
-    initializeDetector();
-    return () => { cancelled = true; detectorRef.current?.close?.(); detectorRef.current = null; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const initializeCamera = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraPermission("blocked");
-        setCameraStatusText("Camera access is not available in this browser.");
-        openWarning("camera_blocked", { confidence: 1 });
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 360 } },
-          audio: false,
-        });
-        if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
-        cameraStreamRef.current = stream;
-        if (candidateVideoRef.current) {
-          candidateVideoRef.current.srcObject = stream;
-          candidateVideoRef.current.play().catch(() => { });
-        }
-        setCameraPermission("granted");
-        setCameraStatusText("Camera live. Monitoring face visibility and attention.");
-      } catch (error) {
-        console.log("camera permission denied", error);
-        setCameraPermission("blocked");
-        setCameraStatusText("Camera permission is blocked. Real-time proctoring is limited.");
-        openWarning("camera_blocked", { confidence: 1 });
-      }
-    };
-    initializeCamera();
-    return () => {
-      cancelled = true;
-      cameraStreamRef.current?.getTracks()?.forEach((track) => track.stop());
-      cameraStreamRef.current = null;
-      micStreamRef.current?.getTracks()?.forEach((track) => track.stop());
-      micStreamRef.current = null;
-    };
-  }, []);
+  const updateCurrentState = (updater) => {
+    setQuestionStates((prev) =>
+      prev.map((item, index) => {
+        if (index !== currentIndex) return item;
+        const updates = typeof updater === "function" ? updater(item) : updater;
+        return { ...item, ...updates };
+      })
+    );
+  };
 
   useEffect(() => {
     const preferredGender = voicePreference === "male" ? "male" : "female";
@@ -389,6 +400,7 @@ function Step2Interview({ interviewData, onFinish }) {
       if (gender === "male") {
         return name.includes("david") || name.includes("mark") || name.includes("male");
       }
+
       return name.includes("zira") || name.includes("samantha") || name.includes("female");
     };
 
@@ -411,6 +423,115 @@ function Step2Interview({ interviewData, onFinish }) {
       window.speechSynthesis.onvoiceschanged = null;
     };
   }, [voicePreference]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initializeDetector = async () => {
+      try {
+        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
+        const detector = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
+            delegate: "GPU",
+          },
+          runningMode: "VIDEO",
+          numFaces: 3,
+          minFaceDetectionConfidence: 0.55,
+          minFacePresenceConfidence: 0.55,
+          minTrackingConfidence: 0.5,
+        });
+
+        if (cancelled) {
+          detector.close();
+          return;
+        }
+
+        detectorRef.current = detector;
+        detectorModeRef.current = "mediapipe";
+        setDetectorMode("mediapipe");
+        setDetectorStatus("ready");
+      } catch (error) {
+        console.log("mediapipe detector unavailable", error);
+
+        if ("FaceDetector" in window) {
+          detectorRef.current = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
+          detectorModeRef.current = "native";
+          setDetectorMode("native");
+          setDetectorStatus("limited");
+          showLiveAlert("detector_offline");
+          return;
+        }
+
+        detectorRef.current = null;
+        detectorModeRef.current = "offline";
+        setDetectorMode("offline");
+        setDetectorStatus("offline");
+        showLiveAlert("detector_offline");
+      }
+    };
+
+    initializeDetector();
+
+    return () => {
+      cancelled = true;
+      detectorRef.current?.close?.();
+      detectorRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initializeCamera = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraPermission("blocked");
+        setCameraStatusText("Camera access is not available in this browser.");
+        openWarning("camera_blocked", { confidence: 1 });
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 360 },
+          },
+          audio: false,
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        cameraStreamRef.current = stream;
+        if (candidateVideoRef.current) {
+          candidateVideoRef.current.srcObject = stream;
+          candidateVideoRef.current.play().catch(() => { });
+        }
+
+        setCameraPermission("granted");
+        setCameraStatusText("Camera live. Monitoring face visibility and attention.");
+      } catch (error) {
+        console.log("camera permission denied", error);
+        setCameraPermission("blocked");
+        setCameraStatusText("Camera permission is blocked. Real-time proctoring is limited.");
+        openWarning("camera_blocked", { confidence: 1 });
+      }
+    };
+
+    initializeCamera();
+
+    return () => {
+      cancelled = true;
+      cameraStreamRef.current?.getTracks()?.forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+      micStreamRef.current?.getTracks()?.forEach((track) => track.stop());
+      micStreamRef.current = null;
+    };
+  }, []);
 
   const ensureMicrophoneAccess = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -447,10 +568,14 @@ function Step2Interview({ interviewData, onFinish }) {
   const startMic = async () => {
     shouldKeepListeningRef.current = true;
 
-    if (!speechSupported) return;
+    if (!speechSupported) {
+      return;
+    }
 
     const hasMicrophone = await ensureMicrophoneAccess();
-    if (!hasMicrophone) return;
+    if (!hasMicrophone) {
+      return;
+    }
 
     if (recognitionRef.current && !isAIPlayingRef.current && !recognitionActiveRef.current) {
       try {
@@ -591,13 +716,19 @@ function Step2Interview({ interviewData, onFinish }) {
 
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
-        if (!result?.isFinal) continue;
+        if (!result?.isFinal) {
+          continue;
+        }
 
         const transcript = result[0]?.transcript?.replace(/\s+/g, " ").trim();
-        if (transcript) finalChunks.push(transcript);
+        if (transcript) {
+          finalChunks.push(transcript);
+        }
       }
 
-      if (!finalChunks.length) return;
+      if (!finalChunks.length) {
+        return;
+      }
 
       updateCurrentState((state) => {
         let nextAnswer = (state.answer || "").trim();
@@ -610,14 +741,18 @@ function Step2Interview({ interviewData, onFinish }) {
             Date.now() - lastTranscriptAtRef.current < 4000;
           const alreadyAtTail = normalizedAnswer.endsWith(normalizedChunk);
 
-          if (repeatedRecently || alreadyAtTail) return;
+          if (repeatedRecently || alreadyAtTail) {
+            return;
+          }
 
           nextAnswer = nextAnswer ? `${nextAnswer} ${chunk}` : chunk;
           lastTranscriptChunkRef.current = normalizedChunk;
           lastTranscriptAtRef.current = Date.now();
         });
 
-        return { answer: nextAnswer };
+        return {
+          answer: nextAnswer,
+        };
       });
     };
 
@@ -679,16 +814,22 @@ function Step2Interview({ interviewData, onFinish }) {
   }, []);
 
   useEffect(() => {
-    if (cameraPermission !== "granted" || !candidateVideoRef.current) return;
+    if (cameraPermission !== "granted" || !candidateVideoRef.current) {
+      return;
+    }
 
     const runDetection = async () => {
-      if (detectionBusyRef.current || document.visibilityState === "hidden") return;
+      if (detectionBusyRef.current || document.visibilityState === "hidden") {
+        return;
+      }
 
       const detector = detectorRef.current;
       const mode = detectorModeRef.current;
       const candidateVideo = candidateVideoRef.current;
 
-      if (!candidateVideo || candidateVideo.readyState < 2 || !detector || mode === "offline") return;
+      if (!candidateVideo || candidateVideo.readyState < 2 || !detector || mode === "offline") {
+        return;
+      }
 
       detectionBusyRef.current = true;
 
@@ -708,23 +849,37 @@ function Step2Interview({ interviewData, onFinish }) {
           faceCount = result.length;
         }
 
-        evaluateWarning("no_face", faceCount === 0, { confidence: faceCount === 0 ? 1 : 0, faceCount });
-        evaluateWarning("multiple_faces", faceCount > 1, { confidence: Math.min(1, faceCount / 3), faceCount });
+        evaluateWarning("no_face", faceCount === 0, {
+          confidence: faceCount === 0 ? 1 : 0,
+          faceCount,
+        });
+        evaluateWarning("multiple_faces", faceCount > 1, {
+          confidence: Math.min(1, faceCount / 3),
+          faceCount,
+        });
 
         if (mode === "mediapipe" && faceCount === 1) {
           evaluateWarning("looking_away", attention.isLookingAway, {
             confidence: Number(Math.max(attention.yaw, attention.pitch).toFixed(2)),
-            faceCount, yaw: Number(attention.yaw.toFixed(3)), pitch: Number(attention.pitch.toFixed(3)),
+            faceCount,
+            yaw: Number(attention.yaw.toFixed(3)),
+            pitch: Number(attention.pitch.toFixed(3)),
           });
         } else {
           evaluateWarning("looking_away", false);
         }
 
-        if (faceCount === 0) setCameraStatusText("Face not visible. Move back into the frame.");
-        else if (faceCount > 1) setCameraStatusText("Multiple faces detected. Only one candidate should be visible.");
-        else if (mode === "mediapipe" && attention.isLookingAway) setCameraStatusText("Looking away detected. Please focus on the interview screen.");
-        else if (mode === "native") setCameraStatusText("Camera live. Face-count checks are running.");
-        else setCameraStatusText("Camera live. Face and attention checks are active.");
+        if (faceCount === 0) {
+          setCameraStatusText("Face not visible. Move back into the frame.");
+        } else if (faceCount > 1) {
+          setCameraStatusText("Multiple faces detected. Only one candidate should be visible.");
+        } else if (mode === "mediapipe" && attention.isLookingAway) {
+          setCameraStatusText("Looking away detected. Please focus on the interview screen.");
+        } else if (mode === "native") {
+          setCameraStatusText("Camera live. Face-count checks are running.");
+        } else {
+          setCameraStatusText("Camera live. Face and attention checks are active.");
+        }
       } catch (error) {
         console.log("face detection error", error);
         setCameraStatusText("Face checks paused. Tab monitoring is still active.");
@@ -734,6 +889,7 @@ function Step2Interview({ interviewData, onFinish }) {
     };
 
     detectionIntervalRef.current = window.setInterval(runDetection, 700);
+
     return () => {
       window.clearInterval(detectionIntervalRef.current);
       detectionIntervalRef.current = null;
@@ -774,23 +930,38 @@ function Step2Interview({ interviewData, onFinish }) {
   const handleResetTemplate = () => {
     updateCurrentState((state) => {
       const nextTemplate = getQuestionStarterCode(currentQuestion, state.language);
+
       return {
-        code: nextTemplate, output: "", runStatus: "idle",
-        languageDrafts: { ...(state.languageDrafts || {}), [state.language]: nextTemplate },
+        code: nextTemplate,
+        output: "",
+        runStatus: "idle",
+        languageDrafts: {
+          ...(state.languageDrafts || {}),
+          [state.language]: nextTemplate,
+        },
       };
     });
   };
 
   const runCode = async () => {
     if (!isTechnicalMode) return;
-    updateCurrentState({ isRunning: true, showOutput: true, output: "Running your latest code..." });
+
+    updateCurrentState({
+      isRunning: true,
+      showOutput: true,
+      output: "Running your latest code...",
+    });
 
     try {
       const result = await axios.post(
         `${ServerUrl}/api/interview/quick-run`,
-        { language: currentState.language, code: currentState.code },
+        {
+          language: currentState.language,
+          code: currentState.code,
+        },
         { withCredentials: true }
       );
+
       updateCurrentState({
         isRunning: false,
         output: result.data.output || "Program finished with no output.",
@@ -851,7 +1022,9 @@ function Step2Interview({ interviewData, onFinish }) {
 
   const handleQuitInterview = async () => {
     const shouldQuit = window.confirm("Quit this interview and return home?");
-    if (!shouldQuit) return;
+    if (!shouldQuit) {
+      return;
+    }
 
     stopMic();
     setIsMicOn(false);
@@ -870,7 +1043,9 @@ function Step2Interview({ interviewData, onFinish }) {
     await speakText("Alright, let us move to the next question.");
     setCurrentIndex(currentIndex + 1);
     setTimeout(() => {
-      if (isMicOn) startMic();
+      if (isMicOn) {
+        startMic();
+      }
     }, 500);
   };
 
@@ -887,9 +1062,11 @@ function Step2Interview({ interviewData, onFinish }) {
         recognitionRef.current.stop();
         recognitionRef.current.abort();
       }
+
       if (detectionIntervalRef.current) {
         window.clearInterval(detectionIntervalRef.current);
       }
+
       alertTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       window.speechSynthesis.cancel();
       cameraStreamRef.current?.getTracks()?.forEach((track) => track.stop());
@@ -898,7 +1075,11 @@ function Step2Interview({ interviewData, onFinish }) {
 
   const activeWarningBadges = activeWarningTypes.map((type) => {
     const config = PROCTORING_ALERTS[type];
-    return { type, label: config?.label || type, severity: config?.severity || "medium" };
+    return {
+      type,
+      label: config?.label || type,
+      severity: config?.severity || "medium",
+    };
   });
 
   const videoSource = voiceGender === "male" ? maleVideo : femaleVideo;

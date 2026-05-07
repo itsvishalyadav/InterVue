@@ -6,7 +6,7 @@ import Step2Interview from '../components/Step2Interview'
 import Step3Report from '../components/Step3Report'
 import ThemeToggle from '../components/ThemeToggle'
 
-function Interview() {
+function InterviewPage() {
     const [step, setStep] = useState(1)
     const [interviewData, setInterviewData] = useState(null)
     const navigate = useNavigate()
@@ -14,7 +14,7 @@ function Interview() {
     const steps = useMemo(() => ([
         { id: 1, label: 'Setup' },
         { id: 2, label: 'Interview' },
-        { id: 3, label: 'Report' }
+        { id: 3, label: 'Report' },
     ]), [])
 
     const handleBack = () => {
@@ -86,4 +86,4 @@ function Interview() {
     )
 }
 
-export default Interview
+export default InterviewPage
