@@ -1,36 +1,83 @@
-# InterVue: The Ultimate AI-Powered Mock Interview Platform 🚀
+<div align="center">
+  <img src="https://via.placeholder.com/150x150.png?text=InterVue" alt="InterVue Logo" width="150" height="150" />
+  
+  # 🚀 InterVue
+  **The Ultimate AI-Powered Mock Interview Platform**
+  
+  [![React](https://img.shields.io/badge/React-19.2.0-blue.svg?style=for-the-badge&logo=react)](https://reactjs.org/)
+  [![Node.js](https://img.shields.io/badge/Node.js-Express-green.svg?style=for-the-badge&logo=node.js)](https://nodejs.org/)
+  [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
+  [![TailwindCSS](https://img.shields.io/badge/Tailwind-4.1.18-38B2AC.svg?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-InterVue is an advanced, fully-featured AI mock interview platform that helps candidates prepare for their dream jobs. The platform provides a hyper-realistic interview environment complete with AI voice support, realtime proctoring, a built-in code execution sandbox, resume ATS scoring, and comprehensive feedback generation.
+  <p align="center">
+    <a href="#-about-the-project">About</a> •
+    <a href="#-key-features">Features</a> •
+    <a href="#%EF%B8%8F-tech-stack">Tech Stack</a> •
+    <a href="#-getting-started">Getting Started</a> •
+    <a href="#-project-structure">Structure</a> •
+    <a href="#-contributing">Contributing</a>
+  </p>
+</div>
 
-## 🌟 Key Features
+---
 
-*   **Resume ATS Scoring & Analysis**: Upload your PDF resume, specify a target role/job description, and get immediate ATS feedback (Keyword, Skills, Experience formatting) powered by AI.
-*   **Hyper-Realistic AI Voice Interviews**: Supports interactive conversation allowing candidates to respond naturally, while the AI parses answers and asks follow-ups based on the role and experience level.
-*   **Built-in Code Sandbox**: Fully integrated Monaco editor with a backend code runner, capable of compiling and running user solutions during technical interviews.
-*   **Real-time AI Proctoring**: Face tracking technology utilizing Google's MediaPipe ensures candidates stay focused during the interview. Alerts are triggered for multiple faces or looking away.
-*   **Deep Performance Analytics**: After the interview, users receive a detailed PDF-exportable report covering correctness, communication, and overall feedback for each question.
-*   **Personalization & Adaptive AI**: Question sets are intelligently generated from user resumes (Projects & Experience) mixed with behavioral and technical role-based requirements utilizing models like Qwen 2.5 Coder via OpenRouter config.
-*   **Payment & Tiered Credits System**: Razorpay is implemented out of the box to offer Starter (500 credits) and Pro packs (2000 credits).
+## 📖 About The Project
+
+**InterVue** is an advanced, fully-featured AI mock interview platform that helps candidates prepare for their dream jobs. The platform provides a hyper-realistic interview environment complete with AI voice support, realtime proctoring, a built-in code execution sandbox, resume ATS scoring, and comprehensive feedback generation. 
+
+Whether you are preparing for behavioral rounds or technical coding interviews, InterVue acts as your personal AI recruiter, adapting to your resume and experience level.
+
+---
+
+## ✨ Key Features
+
+*   🎯 **Resume ATS Scoring & Analysis:** Upload your PDF resume, specify a target role/job description, and get immediate ATS feedback (Keyword, Skills, Experience formatting) powered by AI.
+*   🎙️ **Hyper-Realistic AI Voice Interviews:** Supports interactive conversation allowing candidates to respond naturally, while the AI parses answers and asks follow-ups based on the role and experience level.
+*   💻 **Built-in Code Sandbox:** Fully integrated Monaco editor with a backend code runner, capable of compiling and running user solutions during technical interviews.
+*   👁️ **Real-time AI Proctoring:** Face tracking technology utilizing Google's MediaPipe ensures candidates stay focused during the interview. Alerts are triggered for multiple faces or looking away.
+*   📊 **Deep Performance Analytics:** After the interview, users receive a detailed PDF-exportable report covering correctness, communication, and overall feedback for each question.
+*   🧠 **Personalization & Adaptive AI:** Question sets are intelligently generated from user resumes (Projects & Experience) mixed with behavioral and technical role-based requirements utilizing models like Qwen 2.5 Coder via OpenRouter config.
+*   💳 **Payment & Tiered Credits System:** Razorpay is implemented out of the box to offer Starter (500 credits) and Pro packs (2000 credits).
+
+---
+
+## 📸 Screenshots
+*(Add screenshots of your application here)*
+<details>
+<summary>Click to view screenshots</summary>
+
+| Dashboard | Interview Session |
+|---|---|
+| <img src="https://via.placeholder.com/400x250.png?text=Dashboard" alt="Dashboard" /> | <img src="https://via.placeholder.com/400x250.png?text=Interview+Session" alt="Interview Session" /> |
+
+| ATS Review | Performance Report |
+|---|---|
+| <img src="https://via.placeholder.com/400x250.png?text=ATS+Review" alt="ATS Review" /> | <img src="https://via.placeholder.com/400x250.png?text=Performance+Report" alt="Performance Report" /> |
+
+</details>
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Frontend (Client)
-*   **Framework**: [React 19](https://react.dev/) with [Vite](https://vitejs.dev/)
-*   **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) & [Framer Motion](https://www.framer.com/motion/) (For stunning, interactive UI)
-*   **State Management**: [Redux Toolkit](https://redux-toolkit.js.org/)
-*   **Code Editor**: [@monaco-editor/react](https://github.com/suren-atoyan/monaco-react)
-*   **Webcam / AI Proctoring**: [@mediapipe/tasks-vision](https://developers.google.com/mediapipe)
-*   **Authentication**: [Firebase](https://firebase.google.com/)
-*   **PDF Generation & Parsing**: `jspdf`, `jspdf-autotable`
+InterVue is built with modern, cutting-edge technologies:
 
-### Backend (Server)
-*   **Framework**: [Express.js](https://expressjs.com/) (Node.js ecosystem)
-*   **Database**: [MongoDB](https://www.mongodb.com/) via Mongoose
-*   **AI Integration**: [OpenRouter API](https://openrouter.ai/) (Utilizes `qwen-2.5-coder-7b-instruct` for question generation, `gpt-4o-mini` for Resume & ATS analysis)
-*   **Payments**: [Razorpay](https://razorpay.com/) SDK
-*   **File Handling / ATS**: `multer` and `pdfjs-dist` to securely ingest and parse applicant resumes in-memory.
+### 🎨 Frontend (Client)
+*   **Framework:** [React 19](https://react.dev/) with [Vite](https://vitejs.dev/)
+*   **Styling:** [Tailwind CSS v4](https://tailwindcss.com/) & [Framer Motion](https://www.framer.com/motion/) (For stunning, interactive UI)
+*   **State Management:** [Redux Toolkit](https://redux-toolkit.js.org/)
+*   **Code Editor:** [@monaco-editor/react](https://github.com/suren-atoyan/monaco-react)
+*   **Webcam / AI Proctoring:** [@mediapipe/tasks-vision](https://developers.google.com/mediapipe)
+*   **Authentication:** [Firebase](https://firebase.google.com/)
+*   **PDF Generation & Parsing:** `jspdf`, `jspdf-autotable`
+
+### ⚙️ Backend (Server)
+*   **Framework:** [Express.js](https://expressjs.com/) (Node.js ecosystem)
+*   **Database:** [MongoDB](https://www.mongodb.com/) via Mongoose
+*   **AI Integration:** [OpenRouter API](https://openrouter.ai/) (Utilizes `qwen-2.5-coder-7b-instruct` for question generation, `gpt-4o-mini` for Resume & ATS analysis)
+*   **Payments:** [Razorpay](https://razorpay.com/) SDK
+*   **File Handling / ATS:** `multer` and `pdfjs-dist` to securely ingest and parse applicant resumes in-memory.
 
 ---
 
@@ -38,16 +85,16 @@ InterVue is an advanced, fully-featured AI mock interview platform that helps ca
 
 ```text
 InterVue/
-├── Client/                  # React + Vite Frontend
+├── client/                  # React + Vite Frontend
 │   ├── src/
-│   │   ├── components/      # UI components (Navbar, Step1SetUp, Proctoring, etc.)
-│   │   ├── pages/           # High-level views (Home, Interview, Pricing, History)
+│   │   ├── components/      # UI components (Navbar, Proctoring, etc.)
+│   │   ├── pages/           # High-level views (Home, Interview, Pricing)
 │   │   ├── redux/           # Slice files & Redux store setup
 │   │   └── App.jsx          # Route declarations
 │   └── package.json
 │
 └── server/                  # Node + Express Backend
-    ├── controllers/         # Request handling logically grouped (user, interview, auth)
+    ├── controllers/         # Request handling logically grouped
     ├── models/              # Mongoose DB schema definitions
     ├── routes/              # Express API Routes
     ├── services/            # ATS / OpenRouter AI handling logic
@@ -57,10 +104,21 @@ InterVue/
 
 ---
 
-## 💻 Running Locally
+## 🚀 Getting Started
+
+Follow these instructions to set up the project locally on your machine.
 
 ### Prerequisites
-Make sure you have [Node.js](https://nodejs.org/) installed along with MongoDB (local or Atlas) and API keys for Firebase, OpenRouter, and Razorpay.
+
+Make sure you have the following installed:
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [MongoDB](https://www.mongodb.com/) (Local or Atlas URI)
+- Git
+
+You will also need API keys for:
+- [Firebase](https://firebase.google.com/) (Auth)
+- [OpenRouter](https://openrouter.ai/) (AI Models)
+- [Razorpay](https://razorpay.com/) (Payments)
 
 ### 1. Clone the repository
 
@@ -69,7 +127,8 @@ git clone https://github.com/itsvishalyadav/InterVue.git
 cd InterVue
 ```
 
-### 2. Setup the Backend Environment
+### 2. Setup the Backend (Server)
+
 Navigate to the `server/` directory and install dependencies:
 
 ```bash
@@ -78,6 +137,7 @@ npm install
 ```
 
 Create a `.env` file in the `server` directory and configure the following variables:
+
 ```env
 PORT=5000
 MONGODB_URI=your_mongodb_connection_string
@@ -89,20 +149,23 @@ RAZORPAY_KEY_ID=your_razorpay_key
 RAZORPAY_KEY_SECRET=your_razorpay_secret
 ```
 
-Start the backend logic:
+Start the backend server:
+
 ```bash
 npm run dev
 ```
 
-### 3. Setup the Frontend Environment
-Open a new terminal window / tab, navigate to the `Client/` directory and install dependencies:
+### 3. Setup the Frontend (Client)
+
+Open a new terminal window/tab, navigate to the `client/` directory, and install dependencies:
 
 ```bash
-cd Client
+cd ../client  # Or navigate directly to InterVue/client
 npm install
 ```
 
-Create a `.env` file in the `Client` directory for your frontend API keys:
+Create a `.env` file in the `client` directory for your frontend API keys:
+
 ```env
 # InterVue Backend URL
 VITE_SERVER_URL=http://localhost:5000
@@ -120,27 +183,45 @@ VITE_RAZORPAY_KEY_ID=your_razorpay_key
 ```
 
 Run the Vite development server:
+
 ```bash
 npm run dev
 ```
 
 ### 4. Let's Go!
-The frontend will likely run on `http://localhost:5173`. Open this URL in Chrome or Edge (recommended for best speech API & MediaPipe compatibility).
+
+Open your browser and navigate to `http://localhost:5173`. 
+> **Note:** We recommend using **Chrome** or **Edge** for the best compatibility with the Speech API & MediaPipe proctoring.
 
 ---
 
-## 🚀 Deployment
+## ☁️ Deployment
 
-**Backend**: Services like Render, Railway, or Heroku work flawlessly. Set the environment variables accordingly in their respective dashboards.
-**Frontend**: Easily deployable to Vercel, Netlify, or Firebase Hosting. Ensure your built assets correctly know the production `VITE_SERVER_URL`.
+*   **Backend:** Can be easily deployed to services like Render, Railway, or Heroku. Ensure you set the environment variables in their respective dashboards.
+*   **Frontend:** Deploy seamlessly to Vercel, Netlify, or Firebase Hosting. Ensure your built assets point to the production `VITE_SERVER_URL`.
 
-**Important**: Because the interview process utilizes browser-native specific Speech Recognition (`webkitSpeechRecognition`), please ensure endpoints are served over `https://` in production, as Chrome refuses microphone access on non-secure origins!
+⚠️ **Important:** The interview process utilizes browser-native specific Speech Recognition (`webkitSpeechRecognition`). You **must** ensure your frontend is served over `https://` in production, as modern browsers block microphone access on non-secure origins!
 
 ---
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are always welcome! Feel free to check the issues page or submit PRs directly.
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
 
 ## 📝 License
-This project is open-sourced software licensed under the MIT License.
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+<div align="center">
+  Made with ❤️ by the <a href="https://github.com/itsvishalyadav">InterVue Team</a>
+</div>
